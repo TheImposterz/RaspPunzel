@@ -1,0 +1,48 @@
+# Logs
+logs/
+*.log
+/var/log/rasppunzel/
+
+# Backups
+backups/
+*.tar.gz
+*.zip
+
+# Configuration sensitive
+config/secrets/
+*.key
+*.pem
+passwords.txt
+
+# Temporaires
+tmp/
+temp/
+*.tmp
+
+# Cache Python
+__pycache__/
+*.pyc
+*.pyo
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Fichiers de test
+test-*
+debug-*
+
+# Données capturées
+captures/
+*.cap
+*.pcap
+
+# Wordlists locales
+wordlists/
+*.txt.gz
