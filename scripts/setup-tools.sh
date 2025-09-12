@@ -41,7 +41,7 @@ install_system_tools() {
     
     # Outils système essentiels
     apt-get install -y -qq \
-        curl wget git vim nano htop iotop \
+        curl wget git nmap vim nano htop iotop \
         build-essential pkg-config cmake \
         python3-pip python3-venv python3-dev \
         nodejs npm \
@@ -224,18 +224,7 @@ install_recon_tools() {
         cd ..
     fi
     
-    # Amass
-    if [ ! -f "/usr/local/bin/amass" ]; then
-        print_status "Installation d'Amass..."
-        wget -q https://github.com/OWASP/Amass/releases/latest/download/amass_linux_amd64.zip -O /tmp/amass.zip 2>/dev/null || true
-        if [ -f "/tmp/amass.zip" ]; then
-            cd /tmp
-            unzip -q amass.zip
-            cp amass_linux_amd64/amass /usr/local/bin/
-            chmod +x /usr/local/bin/amass
-            rm -rf amass_linux_amd64 amass.zip
-        fi
-    fi
+    
     
     # Enum4linux
     if [ ! -d "enum4linux-ng" ]; then
@@ -342,7 +331,7 @@ install_post_exploit_tools() {
     fi
     
     # Impacket
-    pip3 install impacket 2>/dev/null || true
+    pip3 install impacket --break-system-packages 2>/dev/null || true
     
     print_success "Outils de post-exploitation installés"
 }
@@ -375,7 +364,7 @@ install_python_tools() {
         colorama \
         tabulate \
         rich 2>/dev/null || \
-    pip3 install \
+    pip3 install --break-system-packages \
         scapy \
         requests \
         beautifulsoup4 \
