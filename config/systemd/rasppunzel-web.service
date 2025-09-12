@@ -6,13 +6,13 @@ Wants=rasppunzel-network.service
 
 [Service]
 Type=simple
-User=pi
-Group=pi
+User=admin
+Group=admin
 WorkingDirectory=/opt/rasppunzel/web
-Environment=PATH=/opt/rasppunzel/web/venv/bin
+Environment=PATH=/opt/rasppunzel/web/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 Environment=PYTHONPATH=/opt/rasppunzel/web
 ExecStartPre=/bin/sleep 2
-ExecStart=/opt/rasppunzel/web/venv/bin/python api/app.py --host=0.0.0.0 --port=8080
+ExecStart=/opt/rasppunzel/web/venv/bin/python api/app.py --host=0.0.0.0 --port=5000
 ExecReload=/bin/kill -HUP $MAINPID
 KillMode=mixed
 KillSignal=SIGINT
