@@ -2,6 +2,7 @@
 
 # =============================================================================
 # RaspPunzel - Script de Démarrage des Services
+# Version intégrée avec Dashboard Web
 # =============================================================================
 
 set -e
@@ -134,8 +135,14 @@ start_dnsmasq() {
     fi
 }
 
-# Démarrage du service nginx
+# Démarrage du service nginx (si dashboard web pas installé)
 start_nginx() {
+    # Vérifier si le dashboard web est installé
+    if systemctl list-unit-files | grep -q "rasppunzel-web.service"; then
+        print_status "Dashboard web détecté, nginx ignoré"
+        return 0
+    fi
+    
     print_status "Démarrage du service nginx..."
     log_message "Démarrage du service nginx"
     
@@ -162,6 +169,70 @@ start_nginx() {
     fi
 }
 
+# Démarrage du dashboard web (si installé)
+start_web_dashboard() {
+    if ! systemctl list-unit-files | grep -q "rasppunzel-web.service"; then
+        print_status "Dashboard web non installé, passage ignoré"
+        return 0
+    fi
+    
+    print_status "Démarrage du dashboard web RaspPunzel..."
+    log_message "Démarrage du dashboard web"
+    
+    if systemctl is-active --quiet rasppunzel-web; then
+        print_warning "Dashboard web déjà démarré"
+    else
+        systemctl start rasppunzel-web
+        sleep 5
+        
+        if systemctl is-active --quiet rasppunzel-web; then
+            print_success "Dashboard web démarré"
+            log_message "Dashboard web démarré avec succès"
+            
+            # Obtenir le port du dashboard
+            local port=$(netstat -tlpn 2>/dev/null | grep python | grep LISTEN | awk '{print $4}' | cut -d: -f2 | head -1)
+            if [ ! -z "$port" ]; then
+                print_status "Dashboard accessible sur port $port"
+            fi
+        else
+            print_error "Échec démarrage dashboard web"
+            log_message "ERREUR: Échec démarrage dashboard web"
+            # Afficher les logs pour débugger
+            journalctl -u rasppunzel-web --no-pager -n 5
+        fi
+    fi
+}
+
+# Démarrage des services systemd RaspPunzel
+start_rasppunzel_services() {
+    print_status "Démarrage des services RaspPunzel..."
+    log_message "Démarrage des services RaspPunzel"
+    
+    # Services RaspPunzel spécifiques
+    local rasppunzel_services=("rasppunzel-network" "rasppunzel-tower")
+    
+    for service in "${rasppunzel_services[@]}"; do
+        if systemctl list-unit-files | grep -q "$service.service"; then
+            if systemctl is-active --quiet "$service"; then
+                print_warning "$service déjà démarré"
+            else
+                systemctl start "$service"
+                sleep 2
+                
+                if systemctl is-active --quiet "$service"; then
+                    print_success "$service démarré"
+                    log_message "$service démarré avec succès"
+                else
+                    print_error "Échec démarrage $service"
+                    log_message "ERREUR: Échec démarrage $service"
+                fi
+            fi
+        else
+            print_warning "Service $service non installé"
+        fi
+    done
+}
+
 # Application des règles iptables
 apply_iptables_rules() {
     print_status "Application des règles iptables..."
@@ -183,8 +254,24 @@ verify_services() {
     log_message "Vérification des services"
     
     local all_ok=true
-    local services=("ssh" "hostapd" "dnsmasq" "nginx")
+    local services=("ssh" "hostapd" "dnsmasq")
     
+    # Ajouter nginx ou rasppunzel-web selon ce qui est installé
+    if systemctl list-unit-files | grep -q "rasppunzel-web.service"; then
+        services+=("rasppunzel-web")
+    else
+        services+=("nginx")
+    fi
+    
+    # Ajouter les services RaspPunzel s'ils existent
+    for rp_service in "rasppunzel-network" "rasppunzel-tower"; do
+        if systemctl list-unit-files | grep -q "$rp_service.service"; then
+            services+=("$rp_service")
+        fi
+    done
+    
+    echo
+    print_status "État des services :"
     for service in "${services[@]}"; do
         if systemctl is-active --quiet "$service"; then
             print_success "$service: ✓ ACTIF"
@@ -204,10 +291,19 @@ verify_services() {
         print_warning "Port 22 (SSH): ✗ FERMÉ"
     fi
     
-    if ss -tlnp | grep -q ":8080"; then
-        print_success "Port 8080 (Web): ✓ OUVERT"
-    else
-        print_warning "Port 8080 (Web): ✗ FERMÉ"
+    # Port web (8080 pour dashboard web, sinon nginx)
+    if systemctl is-active --quiet rasppunzel-web; then
+        if ss -tlnp | grep -q ":8080"; then
+            print_success "Port 8080 (Dashboard Web): ✓ OUVERT"
+        else
+            print_warning "Port 8080 (Dashboard Web): ✗ FERMÉ"
+        fi
+    elif systemctl is-active --quiet nginx; then
+        if ss -tlnp | grep -q ":80\|:8080"; then
+            print_success "Port Web (nginx): ✓ OUVERT"
+        else
+            print_warning "Port Web (nginx): ✗ FERMÉ"
+        fi
     fi
     
     if ss -ulnp | grep -q ":67"; then
@@ -234,9 +330,33 @@ show_connection_info() {
     echo -e "  ${GREEN}WiFi AP (caché)${NC}: MAINTENANCE_WIFI"
     echo -e "  ${GREEN}Mot de passe${NC}   : SecureP@ss123!"
     echo -e "  ${GREEN}IP du Pi${NC}       : 192.168.10.1"
-    echo -e "  ${GREEN}Interface Web${NC}  : http://192.168.10.1:8080"
+    
+    # Interface web selon ce qui est installé
+    if systemctl is-active --quiet rasppunzel-web; then
+        local web_port=$(netstat -tlpn 2>/dev/null | grep python | grep LISTEN | awk '{print $4}' | cut -d: -f2 | head -1)
+        web_port=${web_port:-8080}
+        echo -e "  ${GREEN}Dashboard Web${NC}  : http://192.168.10.1:$web_port"
+        echo -e "  ${BLUE}Fonctionnalités${NC} : Interface moderne avec outils intégrés"
+    elif systemctl is-active --quiet nginx; then
+        echo -e "  ${GREEN}Interface Web${NC}  : http://192.168.10.1:8080"
+        echo -e "  ${BLUE}Type${NC}           : Interface web statique"
+    fi
+    
     echo -e "  ${GREEN}SSH${NC}            : ssh admin@192.168.10.1"
     echo
+    
+    # Services RaspPunzel actifs
+    local rp_services_active=()
+    for service in "rasppunzel-network" "rasppunzel-tower"; do
+        if systemctl is-active --quiet "$service" 2>/dev/null; then
+            rp_services_active+=("$service")
+        fi
+    done
+    
+    if [ ${#rp_services_active[@]} -gt 0 ]; then
+        print_status "Services RaspPunzel actifs: ${rp_services_active[*]}"
+    fi
+    
     log_message "Informations de connexion affichées"
 }
 
@@ -258,7 +378,15 @@ main() {
     configure_ap_interface
     start_hostapd
     start_dnsmasq
+    
+    # Services web (nginx OU dashboard web)
     start_nginx
+    start_web_dashboard
+    
+    # Services RaspPunzel spécifiques
+    start_rasppunzel_services
+    
+    # Configuration réseau
     apply_iptables_rules
     
     # Vérification finale
