@@ -20,8 +20,8 @@ import psutil
 import signal
 from werkzeug.serving import make_server
 
-app = Flask(__name__)
-app.config['SECRET_KEY'] = 'rasppunzel-secret-key-2024'
+app = Flask(__name__, template_folder='../')
+app.config['SECRET_KEY'] = 'rasppunzel-secret-key-2025'
 CORS(app)
 socketio = SocketIO(app, cors_allowed_origins="*")
 
