@@ -432,44 +432,44 @@
         <!-- Status Bar -->
         <div class="status-bar">
             <div class="status-item">
-                <h3>📡 WiFi AP</h3>
+                <h3>WiFi AP</h3>
                 <div class="status-value" id="wifi-status">
                     <span class="loading"></span>
                 </div>
             </div>
             <div class="status-item">
-                <h3>🌐 Réseau</h3>
+                <h3>Réseau</h3>
                 <div class="status-value" id="network-status">Chargement...</div>
             </div>
             <div class="status-item">
-                <h3>💻 Système</h3>
+                <h3>Système</h3>
                 <div class="status-value" id="system-status">
                     <span class="loading"></span>
                 </div>
             </div>
             <div class="status-item">
-                <h3>⏰ Uptime</h3>
+                <h3>Uptime</h3>
                 <div class="status-value" id="uptime">--:--:--</div>
             </div>
             <div class="status-item">
-                <h3>🖥️ CPU</h3>
+                <h3>CPU</h3>
                 <div class="status-value" id="cpu-usage">--%</div>
             </div>
             <div class="status-item">
-                <h3>💾 RAM</h3>
+                <h3>RAM</h3>
                 <div class="status-value" id="memory-usage">--%</div>
             </div>
         </div>
 
         <!-- Control Panel -->
         <div class="control-panel">
-            <h3>🎮 Contrôles Système</h3>
+            <h3>Contrôles Système</h3>
             <div class="control-buttons">
-                <button class="btn primary" onclick="startServices()">▶️ Démarrer Services</button>
-                <button class="btn" onclick="restartServices()">🔄 Redémarrer</button>
-                <button class="btn danger" onclick="stopServices()">⏹️ Arrêter Services</button>
-                <button class="btn" onclick="updateSystem()">🔧 Mise à Jour</button>
-                <button class="btn" onclick="showLogs()">📋 Logs</button>
+                <button class="btn primary" onclick="startServices()">Démarrer Services</button>
+                <button class="btn" onclick="restartServices()">Redémarrer</button>
+                <button class="btn danger" onclick="stopServices()">Arrêter Services</button>
+                <button class="btn" onclick="updateSystem()">Mise à Jour</button>
+                <button class="btn" onclick="showLogs()">Logs</button>
             </div>
         </div>
 
@@ -477,7 +477,7 @@
         <div class="tools-grid">
             <!-- Reconnaissance -->
             <div class="tool-category">
-                <h3><span class="icon">🔍</span>Reconnaissance</h3>
+                <h3>Reconnaissance</h3>
                 <div class="tool-buttons">
                     <button class="btn" onclick="showToolDialog('nmap', 'Scan Réseau')">Nmap</button>
                     <button class="btn" onclick="showToolDialog('masscan', 'Scan Rapide')">Masscan</button>
@@ -493,7 +493,7 @@
 
             <!-- WiFi Attacks -->
             <div class="tool-category">
-                <h3><span class="icon">📶</span>Attaques WiFi</h3>
+                <h3>Attaques WiFi</h3>
                 <div class="tool-buttons">
                     <button class="btn" onclick="showToolDialog('wifite', 'Auto Attack')">Wifite</button>
                     <button class="btn" onclick="showToolDialog('aircrack', 'Crack WPA')">Aircrack</button>
@@ -509,7 +509,7 @@
 
             <!-- Web Security -->
             <div class="tool-category">
-                <h3><span class="icon">🌐</span>Sécurité Web</h3>
+                <h3>Sécurité Web</h3>
                 <div class="tool-buttons">
                     <button class="btn" onclick="showToolDialog('nikto', 'Scan Web')">Nikto</button>
                     <button class="btn" onclick="showToolDialog('gobuster', 'Dir Brute')">Gobuster</button>
@@ -525,7 +525,7 @@
 
             <!-- Password Attacks -->
             <div class="tool-category">
-                <h3><span class="icon">🔐</span>Attaques Mots de Passe</h3>
+                <h3>Attaques Mots de Passe</h3>
                 <div class="tool-buttons">
                     <button class="btn" onclick="showToolDialog('hydra', 'Brute Force')">Hydra</button>
                     <button class="btn" onclick="showToolDialog('john', 'Hash Crack')">John</button>
@@ -541,7 +541,7 @@
 
             <!-- Exploitation -->
             <div class="tool-category">
-                <h3><span class="icon">🎯</span>Exploitation</h3>
+                <h3>Exploitation</h3>
                 <div class="tool-buttons">
                     <button class="btn" onclick="runTool('msfconsole', 'Metasploit')">MSF Console</button>
                     <button class="btn" onclick="runTool('beef', 'Browser Hook')">BeEF</button>
@@ -555,7 +555,7 @@
 
             <!-- Network Analysis -->
             <div class="tool-category">
-                <h3><span class="icon">📊</span>Analyse Réseau</h3>
+                <h3>Analyse Réseau</h3>
                 <div class="tool-buttons">
                     <button class="btn" onclick="runTool('wireshark', 'Packet Analysis')">Wireshark</button>
                     <button class="btn" onclick="showToolDialog('ettercap', 'MitM Attack')">Ettercap</button>
@@ -636,17 +636,17 @@
             });
             
             socket.on('tool_started', function(data) {
-                addToTerminal(`✓ ${data.tool} démarré - ${data.description}`, 'success');
+                addToTerminal(`${data.tool} démarré - ${data.description}`, 'success');
                 updateToolStatus(data.tool, 'running');
             });
             
             socket.on('tool_stopped', function(data) {
-                addToTerminal(`⏹ ${data.tool} arrêté`, 'warning');
+                addToTerminal(`${data.tool} arrêté`, 'warning');
                 updateToolStatus(data.tool, 'offline');
             });
             
             socket.on('process_finished', function(data) {
-                addToTerminal(`✓ ${data.tool} terminé`, 'info');
+                addToTerminal(`${data.tool} terminé`, 'info');
                 updateToolStatus(data.tool, 'offline');
             });
             
@@ -665,10 +665,10 @@
             let prefix = '';
             
             switch(type) {
-                case 'success': prefix = '[✓]'; break;
-                case 'error': prefix = '[✗]'; break;
-                case 'warning': prefix = '[⚠]'; break;
-                default: prefix = '[i]'; break;
+                case 'success': prefix = '[OK]'; break;
+                case 'error': prefix = '[ERR]'; break;
+                case 'warning': prefix = '[WARN]'; break;
+                default: prefix = '[INFO]'; break;
             }
             
             line.innerHTML = `<span style="opacity: 0.6">${timestamp}</span> ${prefix} ${text}`;
@@ -796,15 +796,15 @@
                 if (data.success) {
                     runningTools.add(tool);
                     updateToolStatus(tool, 'running');
-                    addToTerminal(`✓ ${tool} démarré avec succès`, 'success');
+                    addToTerminal(`${tool} démarré avec succès`, 'success');
                     showNotification(`${tool} en cours d'exécution`, 'success');
                 } else {
-                    addToTerminal(`✗ Erreur: ${data.message}`, 'error');
+                    addToTerminal(`Erreur: ${data.message}`, 'error');
                     showNotification(`Erreur: ${data.message}`, 'error');
                 }
                 
             } catch (error) {
-                addToTerminal(`✗ Erreur de connexion: ${error.message}`, 'error');
+                addToTerminal(`Erreur de connexion: ${error.message}`, 'error');
                 showNotification('Erreur de connexion à l\'API', 'error');
             }
         }
@@ -821,14 +821,14 @@
                 if (data.success) {
                     runningTools.delete(tool);
                     updateToolStatus(tool, 'offline');
-                    addToTerminal(`⏹ ${tool} arrêté`, 'warning');
+                    addToTerminal(`${tool} arrêté`, 'warning');
                     showNotification(`${tool} arrêté`, 'warning');
                 } else {
-                    addToTerminal(`✗ Erreur d'arrêt: ${data.message}`, 'error');
+                    addToTerminal(`Erreur d'arrêt: ${data.message}`, 'error');
                 }
                 
             } catch (error) {
-                addToTerminal(`✗ Erreur: ${error.message}`, 'error');
+                addToTerminal(`Erreur: ${error.message}`, 'error');
             }
         }
 
@@ -860,10 +860,10 @@
                 if (btn.textContent.toLowerCase().includes(tool.toLowerCase())) {
                     if (status === 'running') {
                         btn.classList.add('running');
-                        btn.textContent = btn.textContent.replace(tool, `${tool} ⏹`);
+                        btn.textContent = btn.textContent.replace(tool, `${tool} [STOP]`);
                     } else {
                         btn.classList.remove('running');
-                        btn.textContent = btn.textContent.replace(` ⏹`, '');
+                        btn.textContent = btn.textContent.replace(` [STOP]`, '');
                     }
                 }
             });
@@ -882,17 +882,17 @@
                 const data = await response.json();
                 
                 if (data.success) {
-                    addToTerminal('✓ Services démarrés avec succès', 'success');
+                    addToTerminal('Services démarrés avec succès', 'success');
                     showNotification('Services démarrés', 'success');
                 } else {
-                    addToTerminal(`✗ Erreur: ${JSON.stringify(data.results)}`, 'error');
+                    addToTerminal(`Erreur: ${JSON.stringify(data.results)}`, 'error');
                     showNotification('Erreur de démarrage des services', 'error');
                 }
                 
                 setTimeout(loadSystemStatus, 2000);
                 
             } catch (error) {
-                addToTerminal(`✗ Erreur: ${error.message}`, 'error');
+                addToTerminal(`Erreur: ${error.message}`, 'error');
                 showNotification('Erreur de connexion', 'error');
             }
         }
@@ -911,16 +911,16 @@
                 const data = await response.json();
                 
                 if (data.success) {
-                    addToTerminal('⏹ Services arrêtés', 'warning');
+                    addToTerminal('Services arrêtés', 'warning');
                     showNotification('Services arrêtés', 'warning');
                 } else {
-                    addToTerminal(`✗ Erreur: ${JSON.stringify(data.results)}`, 'error');
+                    addToTerminal(`Erreur: ${JSON.stringify(data.results)}`, 'error');
                 }
                 
                 setTimeout(loadSystemStatus, 2000);
                 
             } catch (error) {
-                addToTerminal(`✗ Erreur: ${error.message}`, 'error');
+                addToTerminal(`Erreur: ${error.message}`, 'error');
             }
         }
 
@@ -936,16 +936,16 @@
                 const data = await response.json();
                 
                 if (data.success) {
-                    addToTerminal('✓ Services redémarrés avec succès', 'success');
+                    addToTerminal('Services redémarrés avec succès', 'success');
                     showNotification('Redémarrage terminé', 'success');
                 } else {
-                    addToTerminal(`✗ Erreur: ${JSON.stringify(data.results)}`, 'error');
+                    addToTerminal(`Erreur: ${JSON.stringify(data.results)}`, 'error');
                 }
                 
                 setTimeout(loadSystemStatus, 3000);
                 
             } catch (error) {
-                addToTerminal(`✗ Erreur: ${error.message}`, 'error');
+                addToTerminal(`Erreur: ${error.message}`, 'error');
             }
         }
 
@@ -961,14 +961,14 @@
                 const data = await response.json();
                 
                 if (data.success) {
-                    addToTerminal('✓ Mise à jour démarrée', 'success');
+                    addToTerminal('Mise à jour démarrée', 'success');
                     showNotification('Mise à jour en cours d\'exécution', 'success');
                 } else {
-                    addToTerminal(`✗ Erreur: ${data.message}`, 'error');
+                    addToTerminal(`Erreur: ${data.message}`, 'error');
                 }
                 
             } catch (error) {
-                addToTerminal(`✗ Erreur: ${error.message}`, 'error');
+                addToTerminal(`Erreur: ${error.message}`, 'error');
             }
         }
 
@@ -984,11 +984,11 @@
                     });
                     addToTerminal('=== FIN LOGS ===', 'info');
                 } else {
-                    addToTerminal(`✗ Erreur de chargement des logs: ${data.error}`, 'error');
+                    addToTerminal(`Erreur de chargement des logs: ${data.error}`, 'error');
                 }
                 
             } catch (error) {
-                addToTerminal(`✗ Erreur: ${error.message}`, 'error');
+                addToTerminal(`Erreur: ${error.message}`, 'error');
             }
         }
 
@@ -1002,7 +1002,7 @@
             const promises = Array.from(runningTools).map(tool => stopTool(tool));
             await Promise.all(promises);
             
-            addToTerminal('⏹ Tous les outils arrêtés', 'warning');
+            addToTerminal('Tous les outils arrêtés', 'warning');
             showNotification('Tous les outils arrêtés', 'warning');
         }
 
