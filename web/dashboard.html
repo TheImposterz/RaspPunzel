@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RaspPunzel Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(135deg, #0c0c0c 0%, #1a1a1a 100%);
+            color: #00ff41;
+            font-family: 'Courier New', 'Monaco', monospace;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Animation du fond */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: 
+                radial-gradient(circle at 20% 50%, rgba(0, 255, 65, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(0, 255, 65, 0.08) 0%, transparent 50%),
+                radial-gradient(circle at 40% 80%, rgba(0, 255, 65, 0.06) 0%, transparent 50%);
+            animation: float 20s ease-in-out infinite;
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-20px); }
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            position: relative;
+        }
+
+        .header h1 {
+            font-size: 3rem;
+            margin-bottom: 10px;
+            text-shadow: 0 0 20px #00ff41;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { text-shadow: 0 0 20px #00ff41; }
+            50% { text-shadow: 0 0 30px #00ff41, 0 0 40px #00ff41; }
+        }
+
+        .header p {
+            font-size: 1.2rem;
+            opacity: 0.8;
+            margin-bottom: 20px;
+        }
+
+        .status-bar {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 40px;
+        }
+
+        .status-item {
+            background: rgba(0, 255, 65, 0.1);
+            border: 1px solid #00ff41;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+        }
+
+        .status-item:hover {
+            background: rgba(0, 255, 65, 0.2);
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0, 255, 65, 0.3);
+        }
+
+        .status-item h3 {
+            margin-bottom: 10px;
+            color: #00ff41;
+        }
+
+        .status-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+
+        .status-online { color: #00ff41; }
+        .status-offline { color: #ff4444; }
+        .status-warning { color: #ffaa00; }
+
+        .tools-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 25px;
+            margin-bottom: 40px;
+        }
+
+        .tool-category {
+            background: rgba(0, 0, 0, 0.7);
+            border: 2px solid #00ff41;
+            border-radius: 15px;
+            padding: 25px;
+            backdrop-filter: blur(15px);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .tool-category::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, #00ff41, transparent);
+            transition: left 0.5s ease;
+        }
+
+        .tool-category:hover::before {
+            left: 100%;
+        }
+
+        .tool-category:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 20px 40px rgba(0, 255, 65, 0.3);
+            border-color: #00ff88;
+        }
+
+        .tool-category h3 {
+            margin-bottom: 20px;
+            color: #00ff41;
+            font-size: 1.4rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .tool-category .icon {
+            font-size: 1.8rem;
+        }
+
+        .tool-buttons {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 10px;
+        }
+
+        .btn {
+            background: linear-gradient(45deg, #003300, #006600);
+            color: #00ff41;
+            border: 1px solid #00ff41;
+            padding: 12px 18px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-family: inherit;
+            font-size: 0.9rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(0, 255, 65, 0.2), transparent);
+            transition: left 0.5s ease;
+        }
+
+        .btn:hover::before {
+            left: 100%;
+        }
+
+        .btn:hover {
+            background: linear-gradient(45deg, #004400, #008800);
+            box-shadow: 0 5px 15px rgba(0, 255, 65, 0.4);
+            transform: translateY(-2px);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn.primary {
+            background: linear-gradient(45deg, #006600, #00aa00);
+        }
+
+        .btn.danger {
+            background: linear-gradient(45deg, #660000, #aa0000);
+            border-color: #ff4444;
+            color: #ff4444;
+        }
+
+        .control-panel {
+            background: rgba(0, 0, 0, 0.8);
+            border: 2px solid #00ff41;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 30px;
+        }
+
+        .control-panel h3 {
+            margin-bottom: 20px;
+            color: #00ff41;
+            font-size: 1.4rem;
+            text-align: center;
+        }
+
+        .control-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            justify-content: center;
+        }
+
+        .terminal-window {
+            background: #000000;
+            border: 2px solid #00ff41;
+            border-radius: 10px;
+            margin-top: 30px;
+            max-height: 300px;
+            overflow: hidden;
+        }
+
+        .terminal-header {
+            background: #00ff41;
+            color: #000000;
+            padding: 10px 15px;
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .terminal-content {
+            padding: 15px;
+            height: 250px;
+            overflow-y: auto;
+            font-size: 0.9rem;
+            line-height: 1.4;
+        }
+
+        .terminal-line {
+            margin-bottom: 5px;
+            animation: typewriter 0.5s ease-in-out;
+        }
+
+        @keyframes typewriter {
+            from { width: 0; opacity: 0; }
+            to { width: 100%; opacity: 1; }
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #00ff41;
+            border-radius: 50%;
+            border-top-color: transparent;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.9);
+            border: 1px solid #00ff41;
+            border-radius: 8px;
+            padding: 15px 20px;
+            z-index: 1000;
+            transform: translateX(400px);
+            transition: transform 0.3s ease;
+        }
+
+        .notification.show {
+            transform: translateX(0);
+        }
+
+        @media (max-width: 768px) {
+            .tools-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .status-bar {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .control-buttons {
+                justify-content: stretch;
+            }
+            
+            .control-buttons .btn {
+                flex: 1;
+                min-width: 120px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>🚀 RaspPunzel Dashboard</h1>
+            <p>Interface de Contrôle RedTeam</p>
+        </div>
+
+        <!-- Status Bar -->
+        <div class="status-bar">
+            <div class="status-item">
+                <h3>📡 WiFi AP</h3>
+                <div class="status-value status-online" id="wifi-status">EN LIGNE</div>
+            </div>
+            <div class="status-item">
+                <h3>🌐 Réseau</h3>
+                <div class="status-value" id="network-status">192.168.10.1</div>
+            </div>
+            <div class="status-item">
+                <h3>💻 Système</h3>
+                <div class="status-value status-online" id="system-status">ACTIF</div>
+            </div>
+            <div class="status-item">
+                <h3>⏰ Uptime</h3>
+                <div class="status-value" id="uptime">--:--:--</div>
+            </div>
+        </div>
+
+        <!-- Control Panel -->
+        <div class="control-panel">
+            <h3>🎮 Contrôles Système</h3>
+            <div class="control-buttons">
+                <button class="btn primary" onclick="startServices()">▶️ Démarrer Services</button>
+                <button class="btn" onclick="restartServices()">🔄 Redémarrer</button>
+                <button class="btn danger" onclick="stopServices()">⏹️ Arrêter Services</button>
+                <button class="btn" onclick="updateSystem()">🔧 Mise à Jour</button>
+                <button class="btn" onclick="showLogs()">📋 Logs</button>
+            </div>
+        </div>
+
+        <!-- Tools Grid -->
+        <div class="tools-grid">
+            <!-- Reconnaissance -->
+            <div class="tool-category">
+                <h3><span class="icon">🔍</span>Reconnaissance</h3>
+                <div class="tool-buttons">
+                    <button class="btn" onclick="runTool('nmap', 'Scan Réseau')">Nmap</button>
+                    <button class="btn" onclick="runTool('masscan', 'Scan Rapide')">Masscan</button>
+                    <button class="btn" onclick="runTool('kismet', 'Monitor WiFi')">Kismet</button>
+                    <button class="btn" onclick="runTool('airodump', 'Capture WiFi')">Airodump</button>
+                </div>
+            </div>
+
+            <!-- WiFi Attacks -->
+            <div class="tool-category">
+                <h3><span class="icon">📶</span>Attaques WiFi</h3>
+                <div class="tool-buttons">
+                    <button class="btn" onclick="runTool('wifite', 'Auto Attack')">Wifite</button>
+                    <button class="btn" onclick="runTool('aircrack', 'Crack WPA')">Aircrack</button>
+                    <button class="btn" onclick="runTool('reaver', 'WPS Attack')">Reaver</button>
+                    <button class="btn" onclick="runTool('bully', 'WPS Brute')">Bully</button>
+                </div>
+            </div>
+
+            <!-- Web Security -->
+            <div class="tool-category">
+                <h3><span class="icon">🌐</span>Sécurité Web</h3>
+                <div class="tool-buttons">
+                    <button class="btn" onclick="runTool('nikto', 'Scan Web')">Nikto</button>
+                    <button class="btn" onclick="runTool('gobuster', 'Dir Brute')">Gobuster</button>
+                    <button class="btn" onclick="runTool('sqlmap', 'SQL Injection')">SQLMap</button>
+                    <button class="btn" onclick="runTool('burp', 'Proxy Web')">Burp Suite</button>
+                </div>
+            </div>
+
+            <!-- Password Attacks -->
+            <div class="tool-category">
+                <h3><span class="icon">🔐</span>Attaques Mots de Passe</h3>
+                <div class="tool-buttons">
+                    <button class="btn" onclick="runTool('hydra', 'Brute Force')">Hydra</button>
+                    <button class="btn" onclick="runTool('john', 'Hash Crack')">John</button>
+                    <button class="btn" onclick="runTool('hashcat', 'GPU Crack')">Hashcat</button>
+                    <button class="btn" onclick="runTool('medusa', 'Multi Brute')">Medusa</button>
+                </div>
+            </div>
+
+            <!-- Exploitation -->
+            <div class="tool-category">
+                <h3><span class="icon">🎯</span>Exploitation</h3>
+                <div class="tool-buttons">
+                    <button class="btn" onclick="runTool('msfconsole', 'Metasploit')">MSF Console</button>
+                    <button class="btn" onclick="runTool('empire', 'PowerShell')">Empire</button>
+                    <button class="btn" onclick="runTool('beef', 'Browser Hook')">BeEF</button>
+                    <button class="btn" onclick="runTool('setoolkit', 'Social Eng')">SEToolkit</button>
+                </div>
+            </div>
+
+            <!-- Network Analysis -->
+            <div class="tool-category">
+                <h3><span class="icon">📊</span>Analyse Réseau</h3>
+                <div class="tool-buttons">
+                    <button class="btn" onclick="runTool('wireshark', 'Packet Analysis')">Wireshark</button>
+                    <button class="btn" onclick="runTool('ettercap', 'MitM Attack')">Ettercap</button>
+                    <button class="btn" onclick="runTool('bettercap', 'Network Attack')">Bettercap</button>
+                    <button class="btn" onclick="runTool('tcpdump', 'Packet Capture')">TCPDump</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Terminal Window -->
+        <div class="terminal-window">
+            <div class="terminal-header">
+                <span>Terminal RaspPunzel</span>
+                <button class="btn" onclick="clearTerminal()" style="padding: 5px 10px; font-size: 0.8rem;">Effacer</button>
+            </div>
+            <div class="terminal-content" id="terminal">
+                <div class="terminal-line">RaspPunzel v1.0 - Prêt</div>
+                <div class="terminal-line">Système initialisé avec succès</div>
+                <div class="terminal-line">Interface web active sur port 8080</div>
+                <div class="terminal-line">Point d'accès WiFi: MAINTENANCE_WIFI</div>
+                <div class="terminal-line">Tous les services sont opérationnels</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification -->
+    <div class="notification" id="notification"></div>
+
+    <script>
+        // Variables globales
+        let terminalElement = document.getElementById('terminal');
+        let notificationElement = document.getElementById('notification');
+
+        // Fonction pour ajouter du texte au terminal
+        function addToTerminal(text, type = 'info') {
+            const line = document.createElement('div');
+            line.className = 'terminal-line';
+            
+            const timestamp = new Date().toLocaleTimeString();
+            let prefix = '';
+            
+            switch(type) {
+                case 'success': prefix = '[✓]'; break;
+                case 'error': prefix = '[✗]'; break;
+                case 'warning': prefix = '[⚠]'; break;
+                default: prefix = '[i]'; break;
+            }
+            
+            line.innerHTML = `<span style="opacity: 0.6">${timestamp}</span> ${prefix} ${text}`;
+            terminalElement.appendChild(line);
+            terminalElement.scrollTop = terminalElement.scrollHeight;
+            
+            // Limiter le nombre de lignes
+            while (terminalElement.children.length > 50) {
+                terminalElement.removeChild(terminalElement.firstChild);
+            }
+        }
+
+        // Fonction pour afficher une notification
+        function showNotification(message, type = 'info', duration = 3000) {
+            notificationElement.textContent = message;
+            notificationElement.className = `notification show ${type}`;
+            
+            setTimeout(() => {
+                notificationElement.classList.remove('show');
+            }, duration);
+        }
+
+        // Fonction pour exécuter un outil
+        function runTool(tool, description) {
+            addToTerminal(`Lancement de ${tool} - ${description}...`, 'info');
+            showNotification(`Démarrage de ${tool}...`, 'info');
+            
+            // Simulation d'exécution
+            setTimeout(() => {
+                addToTerminal(`${tool} démarré avec succès`, 'success');
+                showNotification(`${tool} en cours d'exécution`, 'success');
+            }, 1000);
+        }
+
+        // Contrôles système
+        function startServices() {
+            addToTerminal('Démarrage des services système...', 'info');
+            showNotification('Démarrage des services...', 'info');
+            
+            setTimeout(() => {
+                updateServiceStatus('online');
+                addToTerminal('Tous les services sont démarrés', 'success');
+                showNotification('Services démarrés avec succès', 'success');
+            }, 2000);
+        }
+
+        function stopServices() {
+            if (confirm('Êtes-vous sûr de vouloir arrêter tous les services ?')) {
+                addToTerminal('Arrêt des services système...', 'warning');
+                showNotification('Arrêt des services...', 'warning');
+                
+                setTimeout(() => {
+                    updateServiceStatus('offline');
+                    addToTerminal('Services arrêtés', 'warning');
+                    showNotification('Services arrêtés', 'warning');
+                }, 1500);
+            }
+        }
+
+        function restartServices() {
+            addToTerminal('Redémarrage des services...', 'info');
+            showNotification('Redémarrage en cours...', 'info');
+            
+            setTimeout(() => {
+                updateServiceStatus('online');
+                addToTerminal('Services redémarrés avec succès', 'success');
+                showNotification('Redémarrage terminé', 'success');
+            }, 3000);
+        }
+
+        function updateSystem() {
+            addToTerminal('Vérification des mises à jour...', 'info');
+            showNotification('Recherche de mises à jour...', 'info');
+            
+            setTimeout(() => {
+                addToTerminal('Système à jour', 'success');
+                showNotification('Aucune mise à jour disponible', 'success');
+            }, 2000);
+        }
+
+        function showLogs() {
+            addToTerminal('=== LOGS SYSTÈME ===', 'info');
+            addToTerminal('hostapd: Point d\'accès actif', 'info');
+            addToTerminal('dnsmasq: DHCP server running', 'info');
+            addToTerminal('nginx: Web server operational', 'info');
+            addToTerminal('ssh: Remote access enabled', 'info');
+            addToTerminal('=== FIN LOGS ===', 'info');
+        }
+
+        function clearTerminal() {
+            terminalElement.innerHTML = '<div class="terminal-line">Terminal effacé</div>';
+        }
+
+        // Fonction pour mettre à jour le statut des services
+        function updateServiceStatus(status) {
+            const wifiStatus = document.getElementById('wifi-status');
+            const systemStatus = document.getElementById('system-status');
+            
+            if (status === 'online') {
+                wifiStatus.textContent = 'EN LIGNE';
+                wifiStatus.className = 'status-value status-online';
+                systemStatus.textContent = 'ACTIF';
+                systemStatus.className = 'status-value status-online';
+            } else {
+                wifiStatus.textContent = 'HORS LIGNE';
+                wifiStatus.className = 'status-value status-offline';
+                systemStatus.textContent = 'INACTIF';
+                systemStatus.className = 'status-value status-offline';
+            }
+        }
+
+        // Fonction pour mettre à jour l'uptime
+        function updateUptime() {
+            const uptimeElement = document.getElementById('uptime');
+            const startTime = new Date().getTime() - (Math.random() * 86400000);
+            const currentTime = new Date().getTime();
+            const uptime = currentTime - startTime;
+            
+            const hours = Math.floor(uptime / (1000 * 60 * 60));
+            const minutes = Math.floor((uptime % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((uptime % (1000 * 60)) / 1000);
+            
+            uptimeElement.textContent = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+
+        // Initialisation au chargement de la page
+        document.addEventListener('DOMContentLoaded', function() {
+            addToTerminal('Interface web chargée avec succès', 'success');
+            showNotification('Bienvenue sur RaspPunzel Dashboard', 'success');
+            
+            // Mise à jour périodique de l'uptime
+            setInterval(updateUptime, 1000);
+            
+            // Simulation d'activité système
+            setInterval(() => {
+                const activities = [
+                    'Scan réseau terminé',
+                    'Nouveau paquet capturé',
+                    'Heartbeat système OK',
+                    'Cache DNS mis à jour',
+                    'Connexion SSH établie'
+                ];
+                
+                if (Math.random() < 0.2) {
+                    const activity = activities[Math.floor(Math.random() * activities.length)];
+                    addToTerminal(activity, 'info');
+                }
+            }, 5000);
+        });
+
+        // Gestion des raccourcis clavier
+        document.addEventListener('keydown', function(e) {
+            // Ctrl+L pour effacer le terminal
+            if (e.ctrlKey && e.key === 'l') {
+                e.preventDefault();
+                clearTerminal();
+            }
+            
+            // Ctrl+R pour redémarrer les services
+            if (e.ctrlKey && e.key === 'r') {
+                e.preventDefault();
+                restartServices();
+            }
+        });
+    </script>
+</body>
+</html>
