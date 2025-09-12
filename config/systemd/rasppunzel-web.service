@@ -1,0 +1,47 @@
+[Unit]
+Description=RaspPunzel Web Dashboard
+Documentation=https://github.com/koutto/pi-pwnbox-rogueap
+After=network.target rasppunzel-network.service
+Wants=rasppunzel-network.service
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+WorkingDirectory=/opt/rasppunzel/web
+Environment=PATH=/opt/rasppunzel/web/venv/bin
+Environment=PYTHONPATH=/opt/rasppunzel/web
+ExecStartPre=/bin/sleep 2
+ExecStart=/opt/rasppunzel/web/venv/bin/python api/app.py --host=0.0.0.0 --port=8080
+ExecReload=/bin/kill -HUP $MAINPID
+KillMode=mixed
+KillSignal=SIGINT
+TimeoutStopSec=5
+Restart=always
+RestartSec=3
+StartLimitIntervalSec=60
+StartLimitBurst=3
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=rasppunzel-web
+
+# Security measures
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/log/rasppunzel
+ReadOnlyPaths=/opt/rasppunzel
+
+# Network
+IPAddressDeny=any
+IPAddressAllow=localhost
+IPAddressAllow=10.0.0.0/8
+IPAddressAllow=192.168.0.0/16
+IPAddressAllow=172.16.0.0/12
+
+[Install]
+WantedBy=multi-user.target
+Also=rasppunzel-network.service
