@@ -1,0 +1,51 @@
+# Configuration DHCP pour RaspPunzel
+
+# Interface d'écoute (point d'accès WiFi)
+interface=wlan1
+listen-address=192.168.10.1
+
+# Liaison exclusive à cette interface
+bind-interfaces
+
+# Configuration DHCP
+dhcp-range=192.168.10.10,192.168.10.50,255.255.255.0,24h
+
+# Options DHCP
+dhcp-option=option:router,192.168.10.1
+dhcp-option=option:dns-server,192.168.10.1,8.8.8.8
+dhcp-option=option:domain-name,rasppunzel.local
+
+# Serveurs DNS en amont
+server=8.8.8.8
+server=1.1.1.1
+server=208.67.222.222
+
+# Configuration DNS locale
+domain=rasppunzel.local
+local=/rasppunzel.local/
+
+# Enregistrements DNS personnalisés
+address=/rasppunzel.local/192.168.10.1
+address=/dashboard.rasppunzel.local/192.168.10.1
+address=/admin.rasppunzel.local/192.168.10.1
+
+# Logs
+log-queries
+log-dhcp
+log-facility=/var/log/rasppunzel.log
+
+# Cache DNS
+cache-size=300
+neg-ttl=60
+
+# Configuration avancée
+expand-hosts
+domain-needed
+bogus-priv
+
+# Ignorer les requêtes pour les domaines Windows
+filterwin2k
+
+# Interface supplémentaire (si ethernet connecté)
+# interface=eth0
+# dhcp-range=eth0,192.168.1.100,192.168.1.150,24h

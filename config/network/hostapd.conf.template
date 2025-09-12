@@ -1,0 +1,35 @@
+# Configuration du point d'accès RaspPunzel
+# Interface WiFi utilisée pour le point d'accès
+interface=wlan1
+driver=nl80211
+
+# Configuration SSID
+ssid=MAINTENANCE_WIFI
+hw_mode=g
+channel=6
+macaddr_acl=0
+auth_algs=1
+
+# SSID caché (1 = caché, 0 = visible)
+ignore_broadcast_ssid=1
+
+# Sécurité WPA2
+wpa=2
+wpa_passphrase=SecureP@ss123!
+wpa_key_mgmt=WPA-PSK
+wpa_pairwise=TKIP CCMP
+rsn_pairwise=CCMP
+
+# Améliorations WiFi
+wmm_enabled=1
+ht_capab=[HT40][SHORT-GI-20][SHORT-GI-40]
+ieee80211n=1
+
+# Code pays (adaptez selon votre localisation)
+country_code=FR
+
+# Logs
+logger_syslog=-1
+logger_syslog_level=2
+logger_stdout=-1
+logger_stdout_level=2

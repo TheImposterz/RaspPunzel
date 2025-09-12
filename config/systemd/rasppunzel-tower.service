@@ -1,0 +1,46 @@
+[Unit]
+Description=RaspPunzel Implant Services
+Documentation=man:systemd.service
+After=network.target network-online.target
+Wants=network-online.target
+Before=multi-user.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+User=root
+Group=root
+
+# Script de démarrage des services
+ExecStart=/opt/rasppunzel-scripts/start-services.sh
+
+# Script d'arrêt des services
+ExecStop=/opt/rasppunzel-scripts/stop-services.sh
+
+# Redémarrage automatique en cas d'échec
+Restart=on-failure
+RestartSec=10
+
+# Timeout
+TimeoutStartSec=120
+TimeoutStopSec=30
+
+# Variables d'environnement
+Environment="PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+Environment="HOME=/root"
+Environment="RASPPUNZEL_HOME=/opt/rasppunzel"
+
+# Sécurité
+NoNewPrivileges=false
+PrivateDevices=false
+ProtectSystem=false
+ProtectHome=false
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=rasppunzel
+
+[Install]
+WantedBy=multi-user.target
+Alias=rasppunzel.service

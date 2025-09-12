@@ -1,0 +1,80 @@
+# Configuration SSH pour RaspPunzel
+# /etc/ssh/sshd_config
+
+# Port d'écoute SSH
+Port 22
+
+# Adresses d'écoute
+#ListenAddress 0.0.0.0
+#ListenAddress ::
+
+# Famille de protocoles
+#AddressFamily any
+
+# Configuration des clés d'hôte
+HostKey /etc/ssh/ssh_host_rsa_key
+HostKey /etc/ssh/ssh_host_ecdsa_key
+HostKey /etc/ssh/ssh_host_ed25519_key
+
+# Algorithmes de chiffrement
+Ciphers chacha20-poly1305@openssh.com,aes256-gcm@openssh.com,aes128-gcm@openssh.com,aes256-ctr,aes192-ctr,aes128-ctr
+MACs hmac-sha2-256-etm@openssh.com,hmac-sha2-512-etm@openssh.com,hmac-sha2-256,hmac-sha2-512
+
+# Authentification
+PermitRootLogin yes
+StrictModes yes
+MaxAuthTries 6
+MaxSessions 10
+
+# Authentification par clé publique
+PubkeyAuthentication yes
+AuthorizedKeysFile .ssh/authorized_keys .ssh/authorized_keys2
+
+# Authentification par mot de passe
+PasswordAuthentication yes
+PermitEmptyPasswords no
+
+# Challenge-response passwords (beware issues with some PAM modules)
+ChallengeResponseAuthentication no
+
+# Configuration Kerberos (généralement désactivé)
+#KerberosAuthentication no
+#KerberosOrLocalPasswd yes
+#KerberosTicketCleanup yes
+#KerberosGetAFSToken no
+
+# GSSAPI (généralement désactivé)
+#GSSAPIAuthentication no
+#GSSAPICleanupCredentials yes
+
+# Utilisation de PAM
+UsePAM yes
+
+# Forwarding
+X11Forwarding yes
+X11DisplayOffset 10
+PrintMotd no
+PrintLastLog yes
+TCPKeepAlive yes
+
+# Configuration des connexions
+ClientAliveInterval 300
+ClientAliveCountMax 2
+
+# Restrictions d'accès
+#AllowUsers admin kali
+#AllowGroups sudo
+
+# Configuration de la bannière
+Banner /etc/ssh/banner
+
+# Logging
+SyslogFacility AUTH
+LogLevel INFO
+
+# Configuration de sftp
+Subsystem sftp /usr/lib/openssh/sftp-server
+
+# Restrictions de commandes (optionnel pour sécurisation)
+#Match User admin
+#    ForceCommand /bin/bash -c "cd /home/admin && exec /bin/bash"
