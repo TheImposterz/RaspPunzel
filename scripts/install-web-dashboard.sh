@@ -143,7 +143,7 @@ setup_systemd_service() {
         cat > "$service_file" << EOF
 [Unit]
 Description=RaspPunzel Web Dashboard
-Documentation=https://github.com/koutto/pi-pwnbox-rogueap
+Documentation=https://github.com/theimposterz/rasppunzel
 After=network.target
 Wants=network.target
 

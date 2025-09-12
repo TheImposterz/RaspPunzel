@@ -455,9 +455,20 @@ main() {
         bash scripts/update-system.sh || print_warning "Mise à jour système échouée (non critique)"
     fi
     
-    if [ -f "scripts/install-tools.sh" ]; then
+    if [ -f "scripts/setup-tools.sh" ]; then
         print_status "Installation des outils de pentest..."
-        bash scripts/install-tools.sh || print_warning "Installation d'outils échouée (non critique)"
+        bash scripts/setup-tools.sh || print_warning "Installation d'outils échouée (non critique)"
+    fi
+    if [ -f "scripts/install-web-dashboard.sh" ]; then
+        print_status "Installation du dashboard web..."
+        bash scripts/install-web-dashboard.sh || print_error "Installation dashboard web échouée (critique)"
+    else
+        print_warning "Script install-web-dashboard.sh non trouvé - Interface web non disponible"
+    fi
+    
+    if [ -f "scripts/setup-network.sh" ]; then
+        print_status "Configuration réseau..."
+        bash scripts/setup-network.sh || print_error "Configuration réseau échouée (critique)"
     fi
     
     if [ -f "scripts/setup-network.sh" ]; then
