@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>RaspPunzel Dashboard</title>
+    <!-- Socket.IO pour la communication temps réel -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
     <style>
         * {
             margin: 0;
@@ -215,6 +217,23 @@
             color: #ff4444;
         }
 
+        .btn.running {
+            background: linear-gradient(45deg, #666600, #aaaa00);
+            border-color: #ffff44;
+            color: #ffff44;
+            animation: blink 1s ease-in-out infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
         .control-panel {
             background: rgba(0, 0, 0, 0.8);
             border: 2px solid #00ff41;
@@ -242,7 +261,7 @@
             border: 2px solid #00ff41;
             border-radius: 10px;
             margin-top: 30px;
-            max-height: 300px;
+            max-height: 400px;
             overflow: hidden;
         }
 
@@ -258,7 +277,7 @@
 
         .terminal-content {
             padding: 15px;
-            height: 250px;
+            height: 350px;
             overflow-y: auto;
             font-size: 0.9rem;
             line-height: 1.4;
@@ -266,12 +285,18 @@
 
         .terminal-line {
             margin-bottom: 5px;
-            animation: typewriter 0.5s ease-in-out;
+            animation: typewriter 0.3s ease-in-out;
+            word-wrap: break-word;
         }
 
+        .terminal-line.success { color: #00ff41; }
+        .terminal-line.error { color: #ff4444; }
+        .terminal-line.warning { color: #ffaa00; }
+        .terminal-line.info { color: #4488ff; }
+
         @keyframes typewriter {
-            from { width: 0; opacity: 0; }
-            to { width: 100%; opacity: 1; }
+            from { opacity: 0; }
+            to { opacity: 1; }
         }
 
         .loading {
@@ -299,10 +324,76 @@
             z-index: 1000;
             transform: translateX(400px);
             transition: transform 0.3s ease;
+            max-width: 300px;
         }
 
         .notification.show {
             transform: translateX(0);
+        }
+
+        .notification.success {
+            border-color: #00ff41;
+            color: #00ff41;
+        }
+
+        .notification.error {
+            border-color: #ff4444;
+            color: #ff4444;
+        }
+
+        .notification.warning {
+            border-color: #ffaa00;
+            color: #ffaa00;
+        }
+
+        .args-input {
+            width: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            border: 1px solid #00ff41;
+            border-radius: 5px;
+            padding: 8px 12px;
+            color: #00ff41;
+            font-family: inherit;
+            font-size: 0.9rem;
+            margin-top: 10px;
+        }
+
+        .args-input:focus {
+            outline: none;
+            box-shadow: 0 0 10px rgba(0, 255, 65, 0.5);
+        }
+
+        .tool-status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 15px;
+            font-size: 0.8rem;
+        }
+
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #333;
+        }
+
+        .status-indicator.running {
+            background: #ffaa00;
+            animation: pulse-status 1s ease-in-out infinite;
+        }
+
+        .status-indicator.online {
+            background: #00ff41;
+        }
+
+        .status-indicator.offline {
+            background: #ff4444;
+        }
+
+        @keyframes pulse-status {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.2); opacity: 0.7; }
         }
 
         @media (max-width: 768px) {
@@ -335,25 +426,38 @@
         <div class="header">
             <h1>🚀 RaspPunzel Dashboard</h1>
             <p>Interface de Contrôle RedTeam</p>
+            <div class="status-indicator" id="connection-status"></div>
         </div>
 
         <!-- Status Bar -->
         <div class="status-bar">
             <div class="status-item">
                 <h3>📡 WiFi AP</h3>
-                <div class="status-value status-online" id="wifi-status">EN LIGNE</div>
+                <div class="status-value" id="wifi-status">
+                    <span class="loading"></span>
+                </div>
             </div>
             <div class="status-item">
                 <h3>🌐 Réseau</h3>
-                <div class="status-value" id="network-status">192.168.10.1</div>
+                <div class="status-value" id="network-status">Chargement...</div>
             </div>
             <div class="status-item">
                 <h3>💻 Système</h3>
-                <div class="status-value status-online" id="system-status">ACTIF</div>
+                <div class="status-value" id="system-status">
+                    <span class="loading"></span>
+                </div>
             </div>
             <div class="status-item">
                 <h3>⏰ Uptime</h3>
                 <div class="status-value" id="uptime">--:--:--</div>
+            </div>
+            <div class="status-item">
+                <h3>🖥️ CPU</h3>
+                <div class="status-value" id="cpu-usage">--%</div>
+            </div>
+            <div class="status-item">
+                <h3>💾 RAM</h3>
+                <div class="status-value" id="memory-usage">--%</div>
             </div>
         </div>
 
@@ -375,10 +479,15 @@
             <div class="tool-category">
                 <h3><span class="icon">🔍</span>Reconnaissance</h3>
                 <div class="tool-buttons">
-                    <button class="btn" onclick="runTool('nmap', 'Scan Réseau')">Nmap</button>
-                    <button class="btn" onclick="runTool('masscan', 'Scan Rapide')">Masscan</button>
+                    <button class="btn" onclick="showToolDialog('nmap', 'Scan Réseau')">Nmap</button>
+                    <button class="btn" onclick="showToolDialog('masscan', 'Scan Rapide')">Masscan</button>
                     <button class="btn" onclick="runTool('kismet', 'Monitor WiFi')">Kismet</button>
-                    <button class="btn" onclick="runTool('airodump', 'Capture WiFi')">Airodump</button>
+                    <button class="btn" onclick="showToolDialog('airodump', 'Capture WiFi')">Airodump</button>
+                </div>
+                <div class="tool-status">
+                    <span>Status:</span>
+                    <div class="status-indicator" id="status-recon"></div>
+                    <span id="recon-info">Inactif</span>
                 </div>
             </div>
 
@@ -386,10 +495,15 @@
             <div class="tool-category">
                 <h3><span class="icon">📶</span>Attaques WiFi</h3>
                 <div class="tool-buttons">
-                    <button class="btn" onclick="runTool('wifite', 'Auto Attack')">Wifite</button>
-                    <button class="btn" onclick="runTool('aircrack', 'Crack WPA')">Aircrack</button>
-                    <button class="btn" onclick="runTool('reaver', 'WPS Attack')">Reaver</button>
-                    <button class="btn" onclick="runTool('bully', 'WPS Brute')">Bully</button>
+                    <button class="btn" onclick="showToolDialog('wifite', 'Auto Attack')">Wifite</button>
+                    <button class="btn" onclick="showToolDialog('aircrack', 'Crack WPA')">Aircrack</button>
+                    <button class="btn" onclick="showToolDialog('reaver', 'WPS Attack')">Reaver</button>
+                    <button class="btn" onclick="showToolDialog('bully', 'WPS Brute')">Bully</button>
+                </div>
+                <div class="tool-status">
+                    <span>Status:</span>
+                    <div class="status-indicator" id="status-wifi"></div>
+                    <span id="wifi-info">Inactif</span>
                 </div>
             </div>
 
@@ -397,10 +511,15 @@
             <div class="tool-category">
                 <h3><span class="icon">🌐</span>Sécurité Web</h3>
                 <div class="tool-buttons">
-                    <button class="btn" onclick="runTool('nikto', 'Scan Web')">Nikto</button>
-                    <button class="btn" onclick="runTool('gobuster', 'Dir Brute')">Gobuster</button>
-                    <button class="btn" onclick="runTool('sqlmap', 'SQL Injection')">SQLMap</button>
-                    <button class="btn" onclick="runTool('burp', 'Proxy Web')">Burp Suite</button>
+                    <button class="btn" onclick="showToolDialog('nikto', 'Scan Web')">Nikto</button>
+                    <button class="btn" onclick="showToolDialog('gobuster', 'Dir Brute')">Gobuster</button>
+                    <button class="btn" onclick="showToolDialog('sqlmap', 'SQL Injection')">SQLMap</button>
+                    <button class="btn" onclick="runTool('beef', 'Framework BeEF')">BeEF</button>
+                </div>
+                <div class="tool-status">
+                    <span>Status:</span>
+                    <div class="status-indicator" id="status-web"></div>
+                    <span id="web-info">Inactif</span>
                 </div>
             </div>
 
@@ -408,10 +527,15 @@
             <div class="tool-category">
                 <h3><span class="icon">🔐</span>Attaques Mots de Passe</h3>
                 <div class="tool-buttons">
-                    <button class="btn" onclick="runTool('hydra', 'Brute Force')">Hydra</button>
-                    <button class="btn" onclick="runTool('john', 'Hash Crack')">John</button>
-                    <button class="btn" onclick="runTool('hashcat', 'GPU Crack')">Hashcat</button>
-                    <button class="btn" onclick="runTool('medusa', 'Multi Brute')">Medusa</button>
+                    <button class="btn" onclick="showToolDialog('hydra', 'Brute Force')">Hydra</button>
+                    <button class="btn" onclick="showToolDialog('john', 'Hash Crack')">John</button>
+                    <button class="btn" onclick="showToolDialog('hashcat', 'GPU Crack')">Hashcat</button>
+                    <button class="btn" onclick="showToolDialog('medusa', 'Multi Brute')">Medusa</button>
+                </div>
+                <div class="tool-status">
+                    <span>Status:</span>
+                    <div class="status-indicator" id="status-password"></div>
+                    <span id="password-info">Inactif</span>
                 </div>
             </div>
 
@@ -420,9 +544,12 @@
                 <h3><span class="icon">🎯</span>Exploitation</h3>
                 <div class="tool-buttons">
                     <button class="btn" onclick="runTool('msfconsole', 'Metasploit')">MSF Console</button>
-                    <button class="btn" onclick="runTool('empire', 'PowerShell')">Empire</button>
                     <button class="btn" onclick="runTool('beef', 'Browser Hook')">BeEF</button>
-                    <button class="btn" onclick="runTool('setoolkit', 'Social Eng')">SEToolkit</button>
+                </div>
+                <div class="tool-status">
+                    <span>Status:</span>
+                    <div class="status-indicator" id="status-exploit"></div>
+                    <span id="exploit-info">Inactif</span>
                 </div>
             </div>
 
@@ -431,9 +558,14 @@
                 <h3><span class="icon">📊</span>Analyse Réseau</h3>
                 <div class="tool-buttons">
                     <button class="btn" onclick="runTool('wireshark', 'Packet Analysis')">Wireshark</button>
-                    <button class="btn" onclick="runTool('ettercap', 'MitM Attack')">Ettercap</button>
-                    <button class="btn" onclick="runTool('bettercap', 'Network Attack')">Bettercap</button>
-                    <button class="btn" onclick="runTool('tcpdump', 'Packet Capture')">TCPDump</button>
+                    <button class="btn" onclick="showToolDialog('ettercap', 'MitM Attack')">Ettercap</button>
+                    <button class="btn" onclick="showToolDialog('bettercap', 'Network Attack')">Bettercap</button>
+                    <button class="btn" onclick="showToolDialog('tcpdump', 'Packet Capture')">TCPDump</button>
+                </div>
+                <div class="tool-status">
+                    <span>Status:</span>
+                    <div class="status-indicator" id="status-network"></div>
+                    <span id="network-info">Inactif</span>
                 </div>
             </div>
         </div>
@@ -442,30 +574,92 @@
         <div class="terminal-window">
             <div class="terminal-header">
                 <span>Terminal RaspPunzel</span>
-                <button class="btn" onclick="clearTerminal()" style="padding: 5px 10px; font-size: 0.8rem;">Effacer</button>
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn" onclick="clearTerminal()" style="padding: 5px 10px; font-size: 0.8rem;">Effacer</button>
+                    <button class="btn danger" onclick="stopAllTools()" style="padding: 5px 10px; font-size: 0.8rem;">Stop All</button>
+                </div>
             </div>
             <div class="terminal-content" id="terminal">
-                <div class="terminal-line">RaspPunzel v1.0 - Prêt</div>
-                <div class="terminal-line">Système initialisé avec succès</div>
-                <div class="terminal-line">Interface web active sur port 8080</div>
-                <div class="terminal-line">Point d'accès WiFi: MAINTENANCE_WIFI</div>
-                <div class="terminal-line">Tous les services sont opérationnels</div>
+                <div class="terminal-line info">RaspPunzel v2.0 - Interface Web API</div>
+                <div class="terminal-line info">Connexion en cours...</div>
             </div>
         </div>
     </div>
+
+    <!-- Dialog pour arguments d'outils -->
+    <div id="tool-dialog" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.95); border: 2px solid #00ff41; border-radius: 10px; padding: 20px; z-index: 2000; min-width: 400px;">
+        <h3 id="dialog-title" style="color: #00ff41; margin-bottom: 15px;"></h3>
+        <div style="margin-bottom: 15px;">
+            <label style="color: #00ff41; display: block; margin-bottom: 5px;">Arguments (optionnel):</label>
+            <input type="text" id="tool-args" class="args-input" placeholder="Ex: -sS -O target">
+        </div>
+        <div style="text-align: right;">
+            <button class="btn" onclick="closeToolDialog()" style="margin-right: 10px;">Annuler</button>
+            <button class="btn primary" onclick="runToolWithArgs()">Lancer</button>
+        </div>
+    </div>
+
+    <!-- Overlay pour dialog -->
+    <div id="dialog-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 1999;" onclick="closeToolDialog()"></div>
 
     <!-- Notification -->
     <div class="notification" id="notification"></div>
 
     <script>
         // Variables globales
+        let socket;
         let terminalElement = document.getElementById('terminal');
         let notificationElement = document.getElementById('notification');
+        let runningTools = new Set();
+        let currentTool = null;
+        
+        // Configuration de l'API
+        const API_BASE = window.location.origin;
+
+        // Initialisation de Socket.IO
+        function initializeSocket() {
+            socket = io(API_BASE);
+            
+            socket.on('connect', function() {
+                addToTerminal('Connexion WebSocket établie', 'success');
+                updateConnectionStatus(true);
+                loadSystemStatus();
+            });
+            
+            socket.on('disconnect', function() {
+                addToTerminal('Connexion WebSocket fermée', 'warning');
+                updateConnectionStatus(false);
+            });
+            
+            socket.on('terminal_output', function(data) {
+                addToTerminal(`[${data.tool}] ${data.output}`, 'info');
+            });
+            
+            socket.on('tool_started', function(data) {
+                addToTerminal(`✓ ${data.tool} démarré - ${data.description}`, 'success');
+                updateToolStatus(data.tool, 'running');
+            });
+            
+            socket.on('tool_stopped', function(data) {
+                addToTerminal(`⏹ ${data.tool} arrêté`, 'warning');
+                updateToolStatus(data.tool, 'offline');
+            });
+            
+            socket.on('process_finished', function(data) {
+                addToTerminal(`✓ ${data.tool} terminé`, 'info');
+                updateToolStatus(data.tool, 'offline');
+            });
+            
+            socket.on('services_status_changed', function(data) {
+                addToTerminal(`Services: ${data.services ? 'Démarrés' : 'Arrêtés'}`, data.services ? 'success' : 'warning');
+                updateSystemStatus();
+            });
+        }
 
         // Fonction pour ajouter du texte au terminal
         function addToTerminal(text, type = 'info') {
             const line = document.createElement('div');
-            line.className = 'terminal-line';
+            line.className = `terminal-line ${type}`;
             
             const timestamp = new Date().toLocaleTimeString();
             let prefix = '';
@@ -482,13 +676,13 @@
             terminalElement.scrollTop = terminalElement.scrollHeight;
             
             // Limiter le nombre de lignes
-            while (terminalElement.children.length > 50) {
+            while (terminalElement.children.length > 100) {
                 terminalElement.removeChild(terminalElement.firstChild);
             }
         }
 
         // Fonction pour afficher une notification
-        function showNotification(message, type = 'info', duration = 3000) {
+        function showNotification(message, type = 'info', duration = 4000) {
             notificationElement.textContent = message;
             notificationElement.className = `notification show ${type}`;
             
@@ -497,132 +691,341 @@
             }, duration);
         }
 
+        // Mise à jour du statut de connexion
+        function updateConnectionStatus(connected) {
+            const indicator = document.getElementById('connection-status');
+            if (connected) {
+                indicator.className = 'status-indicator online';
+            } else {
+                indicator.className = 'status-indicator offline';
+            }
+        }
+
+        // Chargement du statut système
+        async function loadSystemStatus() {
+            try {
+                const response = await fetch(`${API_BASE}/api/status`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Mise à jour des statuts de services
+                    updateServiceStatus('wifi-status', data.services.hostapd);
+                    updateServiceStatus('system-status', data.services.ssh);
+                    
+                    // Mise à jour des informations système
+                    document.getElementById('uptime').textContent = data.system.uptime;
+                    document.getElementById('cpu-usage').textContent = `${Math.round(data.system.cpu_percent)}%`;
+                    document.getElementById('memory-usage').textContent = `${Math.round(data.system.memory_percent)}%`;
+                    
+                    // Mise à jour des interfaces réseau
+                    const networkInfo = Object.entries(data.system.network_interfaces)
+                        .map(([iface, info]) => `${iface}: ${info.ip}`)
+                        .join(', ');
+                    document.getElementById('network-status').textContent = networkInfo || 'Non configuré';
+                    
+                    // Mise à jour des outils en cours
+                    runningTools.clear();
+                    Object.keys(data.running_tools).forEach(tool => {
+                        runningTools.add(tool);
+                        updateToolStatus(tool, 'running');
+                    });
+                }
+            } catch (error) {
+                addToTerminal(`Erreur de chargement du statut: ${error.message}`, 'error');
+            }
+        }
+
+        // Mise à jour du statut des services
+        function updateServiceStatus(elementId, status) {
+            const element = document.getElementById(elementId);
+            if (status) {
+                element.textContent = 'EN LIGNE';
+                element.className = 'status-value status-online';
+            } else {
+                element.textContent = 'HORS LIGNE';
+                element.className = 'status-value status-offline';
+            }
+        }
+
+        // Dialog pour les outils avec arguments
+        function showToolDialog(tool, description) {
+            document.getElementById('dialog-title').textContent = `${description} (${tool})`;
+            document.getElementById('tool-args').value = '';
+            document.getElementById('tool-dialog').style.display = 'block';
+            document.getElementById('dialog-overlay').style.display = 'block';
+            currentTool = { name: tool, description: description };
+            document.getElementById('tool-args').focus();
+        }
+
+        function closeToolDialog() {
+            document.getElementById('tool-dialog').style.display = 'none';
+            document.getElementById('dialog-overlay').style.display = 'none';
+            currentTool = null;
+        }
+
+        function runToolWithArgs() {
+            if (currentTool) {
+                const args = document.getElementById('tool-args').value.trim();
+                runTool(currentTool.name, currentTool.description, args);
+                closeToolDialog();
+            }
+        }
+
         // Fonction pour exécuter un outil
-        function runTool(tool, description) {
-            addToTerminal(`Lancement de ${tool} - ${description}...`, 'info');
-            showNotification(`Démarrage de ${tool}...`, 'info');
+        async function runTool(tool, description, args = '') {
+            if (runningTools.has(tool)) {
+                // Si l'outil est en cours, l'arrêter
+                await stopTool(tool);
+                return;
+            }
             
-            // Simulation d'exécution
-            setTimeout(() => {
-                addToTerminal(`${tool} démarré avec succès`, 'success');
-                showNotification(`${tool} en cours d'exécution`, 'success');
-            }, 1000);
+            try {
+                addToTerminal(`Lancement de ${tool} - ${description}...`, 'info');
+                showNotification(`Démarrage de ${tool}...`, 'info');
+                
+                const response = await fetch(`${API_BASE}/api/tools/${tool}/start`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ args: args })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    runningTools.add(tool);
+                    updateToolStatus(tool, 'running');
+                    addToTerminal(`✓ ${tool} démarré avec succès`, 'success');
+                    showNotification(`${tool} en cours d'exécution`, 'success');
+                } else {
+                    addToTerminal(`✗ Erreur: ${data.message}`, 'error');
+                    showNotification(`Erreur: ${data.message}`, 'error');
+                }
+                
+            } catch (error) {
+                addToTerminal(`✗ Erreur de connexion: ${error.message}`, 'error');
+                showNotification('Erreur de connexion à l\'API', 'error');
+            }
+        }
+
+        // Fonction pour arrêter un outil
+        async function stopTool(tool) {
+            try {
+                const response = await fetch(`${API_BASE}/api/tools/${tool}/stop`, {
+                    method: 'POST'
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    runningTools.delete(tool);
+                    updateToolStatus(tool, 'offline');
+                    addToTerminal(`⏹ ${tool} arrêté`, 'warning');
+                    showNotification(`${tool} arrêté`, 'warning');
+                } else {
+                    addToTerminal(`✗ Erreur d'arrêt: ${data.message}`, 'error');
+                }
+                
+            } catch (error) {
+                addToTerminal(`✗ Erreur: ${error.message}`, 'error');
+            }
+        }
+
+        // Mise à jour du statut des outils
+        function updateToolStatus(tool, status) {
+            const categoryMap = {
+                'nmap': 'recon', 'masscan': 'recon', 'kismet': 'recon', 'airodump': 'recon',
+                'wifite': 'wifi', 'aircrack': 'wifi', 'reaver': 'wifi', 'bully': 'wifi',
+                'nikto': 'web', 'gobuster': 'web', 'sqlmap': 'web', 'beef': 'web',
+                'hydra': 'password', 'john': 'password', 'hashcat': 'password', 'medusa': 'password',
+                'msfconsole': 'exploit',
+                'wireshark': 'network', 'ettercap': 'network', 'bettercap': 'network', 'tcpdump': 'network'
+            };
+            
+            const category = categoryMap[tool];
+            if (category) {
+                const indicator = document.getElementById(`status-${category}`);
+                const info = document.getElementById(`${category}-info`);
+                
+                if (indicator && info) {
+                    indicator.className = `status-indicator ${status}`;
+                    info.textContent = status === 'running' ? `${tool} actif` : 'Inactif';
+                }
+            }
+            
+            // Mise à jour des boutons
+            const buttons = document.querySelectorAll('.btn');
+            buttons.forEach(btn => {
+                if (btn.textContent.toLowerCase().includes(tool.toLowerCase())) {
+                    if (status === 'running') {
+                        btn.classList.add('running');
+                        btn.textContent = btn.textContent.replace(tool, `${tool} ⏹`);
+                    } else {
+                        btn.classList.remove('running');
+                        btn.textContent = btn.textContent.replace(` ⏹`, '');
+                    }
+                }
+            });
         }
 
         // Contrôles système
-        function startServices() {
-            addToTerminal('Démarrage des services système...', 'info');
-            showNotification('Démarrage des services...', 'info');
-            
-            setTimeout(() => {
-                updateServiceStatus('online');
-                addToTerminal('Tous les services sont démarrés', 'success');
-                showNotification('Services démarrés avec succès', 'success');
-            }, 2000);
+        async function startServices() {
+            try {
+                addToTerminal('Démarrage des services système...', 'info');
+                showNotification('Démarrage des services...', 'info');
+                
+                const response = await fetch(`${API_BASE}/api/services/start`, {
+                    method: 'POST'
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    addToTerminal('✓ Services démarrés avec succès', 'success');
+                    showNotification('Services démarrés', 'success');
+                } else {
+                    addToTerminal(`✗ Erreur: ${JSON.stringify(data.results)}`, 'error');
+                    showNotification('Erreur de démarrage des services', 'error');
+                }
+                
+                setTimeout(loadSystemStatus, 2000);
+                
+            } catch (error) {
+                addToTerminal(`✗ Erreur: ${error.message}`, 'error');
+                showNotification('Erreur de connexion', 'error');
+            }
         }
 
-        function stopServices() {
-            if (confirm('Êtes-vous sûr de vouloir arrêter tous les services ?')) {
+        async function stopServices() {
+            if (!confirm('Êtes-vous sûr de vouloir arrêter les services ?')) return;
+            
+            try {
                 addToTerminal('Arrêt des services système...', 'warning');
                 showNotification('Arrêt des services...', 'warning');
                 
-                setTimeout(() => {
-                    updateServiceStatus('offline');
-                    addToTerminal('Services arrêtés', 'warning');
+                const response = await fetch(`${API_BASE}/api/services/stop`, {
+                    method: 'POST'
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    addToTerminal('⏹ Services arrêtés', 'warning');
                     showNotification('Services arrêtés', 'warning');
-                }, 1500);
+                } else {
+                    addToTerminal(`✗ Erreur: ${JSON.stringify(data.results)}`, 'error');
+                }
+                
+                setTimeout(loadSystemStatus, 2000);
+                
+            } catch (error) {
+                addToTerminal(`✗ Erreur: ${error.message}`, 'error');
             }
         }
 
-        function restartServices() {
-            addToTerminal('Redémarrage des services...', 'info');
-            showNotification('Redémarrage en cours...', 'info');
-            
-            setTimeout(() => {
-                updateServiceStatus('online');
-                addToTerminal('Services redémarrés avec succès', 'success');
-                showNotification('Redémarrage terminé', 'success');
-            }, 3000);
+        async function restartServices() {
+            try {
+                addToTerminal('Redémarrage des services...', 'info');
+                showNotification('Redémarrage en cours...', 'info');
+                
+                const response = await fetch(`${API_BASE}/api/services/restart`, {
+                    method: 'POST'
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    addToTerminal('✓ Services redémarrés avec succès', 'success');
+                    showNotification('Redémarrage terminé', 'success');
+                } else {
+                    addToTerminal(`✗ Erreur: ${JSON.stringify(data.results)}`, 'error');
+                }
+                
+                setTimeout(loadSystemStatus, 3000);
+                
+            } catch (error) {
+                addToTerminal(`✗ Erreur: ${error.message}`, 'error');
+            }
         }
 
-        function updateSystem() {
-            addToTerminal('Vérification des mises à jour...', 'info');
-            showNotification('Recherche de mises à jour...', 'info');
-            
-            setTimeout(() => {
-                addToTerminal('Système à jour', 'success');
-                showNotification('Aucune mise à jour disponible', 'success');
-            }, 2000);
+        async function updateSystem() {
+            try {
+                addToTerminal('Lancement de la mise à jour système...', 'info');
+                showNotification('Mise à jour en cours...', 'info');
+                
+                const response = await fetch(`${API_BASE}/api/system/update`, {
+                    method: 'POST'
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    addToTerminal('✓ Mise à jour démarrée', 'success');
+                    showNotification('Mise à jour en cours d\'exécution', 'success');
+                } else {
+                    addToTerminal(`✗ Erreur: ${data.message}`, 'error');
+                }
+                
+            } catch (error) {
+                addToTerminal(`✗ Erreur: ${error.message}`, 'error');
+            }
         }
 
-        function showLogs() {
-            addToTerminal('=== LOGS SYSTÈME ===', 'info');
-            addToTerminal('hostapd: Point d\'accès actif', 'info');
-            addToTerminal('dnsmasq: DHCP server running', 'info');
-            addToTerminal('nginx: Web server operational', 'info');
-            addToTerminal('ssh: Remote access enabled', 'info');
-            addToTerminal('=== FIN LOGS ===', 'info');
+        async function showLogs() {
+            try {
+                const response = await fetch(`${API_BASE}/api/logs`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    addToTerminal('=== LOGS SYSTÈME ===', 'info');
+                    data.logs.slice(-20).forEach(log => {
+                        addToTerminal(`[${log.service}] ${log.line}`, 'info');
+                    });
+                    addToTerminal('=== FIN LOGS ===', 'info');
+                } else {
+                    addToTerminal(`✗ Erreur de chargement des logs: ${data.error}`, 'error');
+                }
+                
+            } catch (error) {
+                addToTerminal(`✗ Erreur: ${error.message}`, 'error');
+            }
         }
 
         function clearTerminal() {
-            terminalElement.innerHTML = '<div class="terminal-line">Terminal effacé</div>';
+            terminalElement.innerHTML = '<div class="terminal-line info">Terminal effacé</div>';
         }
 
-        // Fonction pour mettre à jour le statut des services
-        function updateServiceStatus(status) {
-            const wifiStatus = document.getElementById('wifi-status');
-            const systemStatus = document.getElementById('system-status');
+        async function stopAllTools() {
+            if (!confirm('Arrêter tous les outils en cours ?')) return;
             
-            if (status === 'online') {
-                wifiStatus.textContent = 'EN LIGNE';
-                wifiStatus.className = 'status-value status-online';
-                systemStatus.textContent = 'ACTIF';
-                systemStatus.className = 'status-value status-online';
-            } else {
-                wifiStatus.textContent = 'HORS LIGNE';
-                wifiStatus.className = 'status-value status-offline';
-                systemStatus.textContent = 'INACTIF';
-                systemStatus.className = 'status-value status-offline';
-            }
+            const promises = Array.from(runningTools).map(tool => stopTool(tool));
+            await Promise.all(promises);
+            
+            addToTerminal('⏹ Tous les outils arrêtés', 'warning');
+            showNotification('Tous les outils arrêtés', 'warning');
         }
 
-        // Fonction pour mettre à jour l'uptime
-        function updateUptime() {
-            const uptimeElement = document.getElementById('uptime');
-            const startTime = new Date().getTime() - (Math.random() * 86400000);
-            const currentTime = new Date().getTime();
-            const uptime = currentTime - startTime;
-            
-            const hours = Math.floor(uptime / (1000 * 60 * 60));
-            const minutes = Math.floor((uptime % (1000 * 60 * 60)) / (1000 * 60));
-            const seconds = Math.floor((uptime % (1000 * 60)) / 1000);
-            
-            uptimeElement.textContent = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        // Fonction pour mettre à jour le statut système
+        function updateSystemStatus() {
+            setTimeout(loadSystemStatus, 1000);
         }
 
         // Initialisation au chargement de la page
         document.addEventListener('DOMContentLoaded', function() {
-            addToTerminal('Interface web chargée avec succès', 'success');
-            showNotification('Bienvenue sur RaspPunzel Dashboard', 'success');
+            initializeSocket();
             
-            // Mise à jour périodique de l'uptime
-            setInterval(updateUptime, 1000);
+            // Mise à jour périodique du statut
+            setInterval(loadSystemStatus, 30000); // Toutes les 30 secondes
             
-            // Simulation d'activité système
-            setInterval(() => {
-                const activities = [
-                    'Scan réseau terminé',
-                    'Nouveau paquet capturé',
-                    'Heartbeat système OK',
-                    'Cache DNS mis à jour',
-                    'Connexion SSH établie'
-                ];
-                
-                if (Math.random() < 0.2) {
-                    const activity = activities[Math.floor(Math.random() * activities.length)];
-                    addToTerminal(activity, 'info');
+            // Gestion des touches du dialogue
+            document.getElementById('tool-args').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    runToolWithArgs();
+                } else if (e.key === 'Escape') {
+                    closeToolDialog();
                 }
-            }, 5000);
+            });
         });
 
         // Gestion des raccourcis clavier
@@ -637,6 +1040,11 @@
             if (e.ctrlKey && e.key === 'r') {
                 e.preventDefault();
                 restartServices();
+            }
+            
+            // Escape pour fermer les dialogs
+            if (e.key === 'Escape') {
+                closeToolDialog();
             }
         });
     </script>
