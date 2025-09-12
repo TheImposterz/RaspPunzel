@@ -1,6 +1,6 @@
 [Unit]
 Description=RaspPunzel Web Dashboard
-Documentation=https://github.com/koutto/pi-pwnbox-rogueap
+Documentation=https://github.com/theimposterz/rasppunzel
 After=network.target rasppunzel-network.service
 Wants=rasppunzel-network.service
 
