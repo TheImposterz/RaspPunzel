@@ -42,6 +42,7 @@ print_banner() {
 ║            Implant RedTeam portable pour Raspberry Pi       ║
 ║                     Installation v1.0                       ║
 ╚══════════════════════════════════════════════════════════════╝
+by @bl4ckarch
 EOF
     echo -e "${NC}"
 }
