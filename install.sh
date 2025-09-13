@@ -48,23 +48,23 @@ EOF
 }
 
 print_status() {
-    echo -e "${BLUE}[📋 INFO]${NC} $1"
+    echo -e "${BLUE}[INFO]${NC} $1"
 }
 
 print_success() {
-    echo -e "${GREEN}[✅ SUCCESS]${NC} $1"
+    echo -e "${GREEN}[SUCCESS]${NC} $1"
 }
 
 print_warning() {
-    echo -e "${YELLOW}[⚠️  WARNING]${NC} $1"
+    echo -e "${YELLOW}[WARNING]${NC} $1"
 }
 
 print_error() {
-    echo -e "${RED}[❌ ERROR]${NC} $1"
+    echo -e "${RED}[ERROR]${NC} $1"
 }
 
 print_step() {
-    echo -e "${CYAN}[🔧 STEP]${NC} $1"
+    echo -e "${CYAN}[STEP]${NC} $1"
 }
 
 # Vérifications préliminaires
@@ -189,11 +189,11 @@ configure_settings() {
     
     # Résumé de la configuration
     echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo -e "${YELLOW}📋 Résumé de la configuration:${NC}"
-    echo "   👤 Utilisateur admin: $ADMIN_USER"
-    echo "   📡 SSID WiFi: $WIFI_SSID (caché)"
-    echo "   🌐 IP point d'accès: $AP_IP"
-    echo "   🔌 Port web: $WEB_PORT"
+    echo -e "${YELLOW}Résumé de la configuration:${NC}"
+    echo "   Utilisateur admin: $ADMIN_USER"
+    echo "   SSID WiFi: $WIFI_SSID (caché)"
+    echo "   IP point d'accès: $AP_IP"
+    echo "   Port web: $WEB_PORT"
     echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo
     
@@ -210,7 +210,8 @@ apply_configuration() {
     print_step "Application de la configuration..."
     
     # Création des répertoires nécessaires
-    mkdir -p /opt/rasppunzel-web
+    mkdir -p /opt/rasppunzel/web
+    mkdir -p /opt/rasppunzel/config
     mkdir -p /opt/rasppunzel-scripts
     mkdir -p /var/log/rasppunzel
     
@@ -243,6 +244,30 @@ apply_configuration() {
     print_success "Configuration appliquée aux templates"
 }
 
+# Créer le fichier de configuration d'authentification
+create_auth_config() {
+    print_step "Configuration de l'authentification..."
+    
+    mkdir -p /opt/rasppunzel/config
+    
+    # Hash du mot de passe avec Python
+    PASSWORD_HASH=$(python3 -c "import hashlib; print(hashlib.sha256('$ADMIN_PASS'.encode()).hexdigest())")
+    
+    cat > /opt/rasppunzel/config/auth.json << EOF
+{
+    "username": "$ADMIN_USER",
+    "password_hash": "$PASSWORD_HASH",
+    "created_at": "$(date -I)",
+    "session_timeout": 480
+}
+EOF
+    
+    chmod 600 /opt/rasppunzel/config/auth.json
+    chown $ADMIN_USER:$ADMIN_USER /opt/rasppunzel/config/auth.json 2>/dev/null || true
+    
+    print_success "Configuration d'authentification créée"
+}
+
 # Copie des fichiers de configuration
 copy_configurations() {
     print_step "Copie des fichiers de configuration..."
@@ -256,8 +281,19 @@ copy_configurations() {
     
     # Copie de l'interface web
     if [ -f "web/dashboard.html" ]; then
-        cp web/dashboard.html /opt/rasppunzel-web/
+        cp web/dashboard.html /opt/rasppunzel/web/
         print_success "Interface web copiée"
+    fi
+    
+    if [ -f "web/login.html" ]; then
+        cp web/login.html /opt/rasppunzel/web/
+        print_success "Page de login copiée"
+    fi
+    
+    # Copie de l'API
+    if [ -d "web/api" ]; then
+        cp -r web/api /opt/rasppunzel/web/
+        print_success "API copiée"
     fi
     
     # Copie des services systemd
@@ -367,32 +403,32 @@ create_status_script() {
 #!/bin/bash
 # Script de status RaspPunzel
 
-echo "🚀 RaspPunzel Status Dashboard 🚀"
-echo "=================================="
+echo "RaspPunzel Status Dashboard"
+echo "=========================="
 echo
-echo "📊 Services Status:"
-systemctl is-active --quiet ssh && echo "  ✅ SSH: Active" || echo "  ❌ SSH: Inactive"
-systemctl is-active --quiet hostapd && echo "  ✅ hostapd: Active" || echo "  ❌ hostapd: Inactive"
-systemctl is-active --quiet dnsmasq && echo "  ✅ dnsmasq: Active" || echo "  ❌ dnsmasq: Inactive"
-systemctl is-active --quiet nginx && echo "  ✅ nginx: Active" || echo "  ❌ nginx: Inactive"
+echo "Services Status:"
+systemctl is-active --quiet ssh && echo "  SSH: Active" || echo "  SSH: Inactive"
+systemctl is-active --quiet hostapd && echo "  hostapd: Active" || echo "  hostapd: Inactive"
+systemctl is-active --quiet dnsmasq && echo "  dnsmasq: Active" || echo "  dnsmasq: Inactive"
+systemctl is-active --quiet nginx && echo "  nginx: Active" || echo "  nginx: Inactive"
 
 echo
-echo "🌐 Network Status:"
+echo "Network Status:"
 ip addr show | grep "inet " | grep -v "127.0.0.1" | while read line; do
-    echo "  📡 $line"
+    echo "  $line"
 done
 
 echo
-echo "💾 System Resources:"
-echo "  🔋 Uptime: $(uptime -p)"
-echo "  💽 Disk Usage: $(df -h / | awk 'NR==2 {print $5 " used"}')"
-echo "  🧠 Memory: $(free -h | awk 'NR==2{printf "%.1fG/%.1fG (%.0f%%)\n", $3/1024, $2/1024, $3*100/$2}')"
-echo "  🌡️ Temperature: $(vcgencmd measure_temp 2>/dev/null || echo "N/A")"
+echo "System Resources:"
+echo "  Uptime: $(uptime -p)"
+echo "  Disk Usage: $(df -h / | awk 'NR==2 {print $5 " used"}')"
+echo "  Memory: $(free -h | awk 'NR==2{printf "%.1fG/%.1fG (%.0f%%)\n", $3/1024, $2/1024, $3*100/$2}')"
+echo "  Temperature: $(vcgencmd measure_temp 2>/dev/null || echo "N/A")"
 
 echo
-echo "📱 Access Information:"
-echo "  🌐 Web Interface: http://$(hostname -I | awk '{print $1}'):8080"
-echo "  🔐 SSH: ssh admin@$(hostname -I | awk '{print $1}')"
+echo "Access Information:"
+echo "  Web Interface: http://$(hostname -I | awk '{print $1}'):8080"
+echo "  SSH: ssh admin@$(hostname -I | awk '{print $1}')"
 EOF
     
     chmod +x /usr/local/bin/rasppunzel-status
@@ -421,6 +457,7 @@ cleanup_and_optimize() {
     
     # Optimisation des permissions
     chown -R $ADMIN_USER:$ADMIN_USER /home/$ADMIN_USER 2>/dev/null || true
+    chown -R $ADMIN_USER:$ADMIN_USER /opt/rasppunzel 2>/dev/null || true
     chmod -R 755 /opt/rasppunzel-scripts
     chmod 644 /var/log/rasppunzel/*.log
     
@@ -446,6 +483,7 @@ main() {
     check_prerequisites
     configure_settings
     apply_configuration
+    create_auth_config
     
     # Exécution des sous-scripts avec vérification
     print_step "Exécution des scripts de configuration..."
@@ -459,16 +497,12 @@ main() {
         print_status "Installation des outils de pentest..."
         bash scripts/setup-tools.sh || print_warning "Installation d'outils échouée (non critique)"
     fi
+    
     if [ -f "scripts/install-web-dashboard.sh" ]; then
         print_status "Installation du dashboard web..."
         bash scripts/install-web-dashboard.sh || print_error "Installation dashboard web échouée (critique)"
     else
         print_warning "Script install-web-dashboard.sh non trouvé - Interface web non disponible"
-    fi
-    
-    if [ -f "scripts/setup-network.sh" ]; then
-        print_status "Configuration réseau..."
-        bash scripts/setup-network.sh || print_error "Configuration réseau échouée (critique)"
     fi
     
     if [ -f "scripts/setup-network.sh" ]; then
@@ -485,31 +519,30 @@ main() {
     # Résumé final
     echo
     echo -e "${GREEN}╔══════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${GREEN}║                  ✅ INSTALLATION RÉUSSIE ✅                   ║${NC}"
+    echo -e "${GREEN}║                    INSTALLATION RÉUSSIE                     ║${NC}"
     echo -e "${GREEN}╚══════════════════════════════════════════════════════════════╝${NC}"
     echo
     print_success "RaspPunzel v1.0 installé avec succès!"
-    print_warning "⚠️  REDÉMARRAGE REQUIS pour finaliser l'installation"
+    print_warning "REDÉMARRAGE REQUIS pour finaliser l'installation"
     echo
     echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo -e "${YELLOW}📱 Informations d'accès après redémarrage:${NC}"
+    echo -e "${YELLOW}Informations d'accès après redémarrage:${NC}"
     echo
-    echo "   📡 WiFi AP (caché): $WIFI_SSID"
-    echo "   🔐 Mot de passe WiFi: [CONFIGURÉ]"
-    echo "   🌐 IP du Pi: $AP_IP"
-    echo "   💻 Interface Web: http://$AP_IP:$WEB_PORT"
-    echo "   🔑 SSH: ssh $ADMIN_USER@$AP_IP"
+    echo "   WiFi AP (caché): $WIFI_SSID"
+    echo "   Mot de passe WiFi: [CONFIGURÉ]"
+    echo "   IP du Pi: $AP_IP"
+    echo "   Interface Web: http://$AP_IP:$WEB_PORT"
+    echo "   Login web: $ADMIN_USER / [MOT DE PASSE CONFIGURÉ]"
+    echo "   SSH: ssh $ADMIN_USER@$AP_IP"
     echo
-    echo -e "${YELLOW}🛠️  Commandes utiles:${NC}"
+    echo -e "${YELLOW}Commandes utiles:${NC}"
     echo "   rasppunzel-status  # Status du système"
-    echo "   make start         # Démarrer les services"
-    echo "   make status        # Voir l'état des services"
     echo
     echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo
     
     # Proposition de redémarrage
-    read -p "🔄 Redémarrer maintenant pour finaliser l'installation? (Y/n): " -n 1 -r
+    read -p "Redémarrer maintenant pour finaliser l'installation? (Y/n): " -n 1 -r
     echo
     if [[ $REPLY =~ ^[Nn]$ ]]; then
         echo
