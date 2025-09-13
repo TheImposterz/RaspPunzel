@@ -1,0 +1,223 @@
+<svg width="1400" height="900" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
+      <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#f0f0f0" stroke-width="1"/>
+    </pattern>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="3" dy="3" stdDeviation="2" flood-opacity="0.3"/>
+    </filter>
+    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#666"/>
+    </marker>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="1400" height="900" fill="url(#grid)"/>
+  
+  <!-- Title -->
+  <text x="700" y="30" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" font-weight="bold" fill="#333">RaspPunzel - Architecture Multi-Mode</text>
+  
+  <!-- External Zone -->
+  <rect x="50" y="60" width="280" height="780" fill="#ffebeb" stroke="#ff4444" stroke-width="2" rx="10" filter="url(#shadow)"/>
+  <text x="190" y="85" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="#cc0000">Zone Externe</text>
+  
+  <!-- Internal Network Zone -->
+  <rect x="380" y="60" width="970" height="780" fill="#e8f4fd" stroke="#0066cc" stroke-width="2" rx="10" filter="url(#shadow)"/>
+  <text x="865" y="85" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="#0066cc">Réseau Interne Sécurisé</text>
+  
+  <!-- Mode Separation Lines -->
+  <line x1="380" y1="120" x2="1350" y2="120" stroke="#333" stroke-width="2" stroke-dasharray="5,5"/>
+  <text x="865" y="110" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="#333">Mode 1 &amp; 2: Network Penetration</text>
+  
+  <line x1="380" y1="480" x2="1350" y2="480" stroke="#333" stroke-width="2" stroke-dasharray="5,5"/>
+  <text x="865" y="505" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="#333">Mode 3: WiFi Penetration Testing</text>
+  
+  <!-- OpenVPN Server -->
+  <g transform="translate(70,130)">
+    <rect width="140" height="80" fill="#ff6666" stroke="#cc0000" stroke-width="2" rx="5" filter="url(#shadow)"/>
+    <text x="70" y="30" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="white">OpenVPN Server</text>
+    <text x="70" y="45" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="white">External C2</text>
+    <text x="70" y="60" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="white">Port 1194</text>
+  </g>
+  
+  <!-- Red Team Auditor -->
+  <g transform="translate(70,250)">
+    <rect width="140" height="80" fill="#ff8888" stroke="#cc0000" stroke-width="2" rx="5" filter="url(#shadow)"/>
+    <text x="70" y="25" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="white">Red Team</text>
+    <text x="70" y="40" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="white">Auditor</text>
+    <text x="70" y="60" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="white">Remote Access</text>
+  </g>
+  
+  <!-- WiFi Auditor (On-site) -->
+  <g transform="translate(70,370)">
+    <rect width="140" height="80" fill="#ffaa88" stroke="#cc0000" stroke-width="2" rx="5" filter="url(#shadow)"/>
+    <text x="70" y="25" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="white">On-site</text>
+    <text x="70" y="40" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="white">WiFi Auditor</text>
+    <text x="70" y="60" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="white">Physical Proximity</text>
+  </g>
+  
+  <!-- Central RaspPunzel Core -->
+  <g transform="translate(480,280)">
+    <rect width="320" height="180" fill="#00cc66" stroke="#009944" stroke-width="4" rx="10" filter="url(#shadow)"/>
+    <text x="160" y="25" text-anchor="middle" font-family="Arial, sans-serif" font-size="18" font-weight="bold" fill="white">RaspPunzel Core</text>
+    <text x="160" y="45" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="white">Raspberry Pi 3B+ + Multi WiFi Adapters</text>
+    
+    <!-- Hardware List Left Column -->
+    <text x="15" y="70" font-family="Arial, sans-serif" font-size="10" fill="white" font-weight="bold">Hardware:</text>
+    <text x="15" y="85" font-family="Arial, sans-serif" font-size="9" fill="white">• RPi 3B+ + 64GB SD</text>
+    <text x="15" y="100" font-family="Arial, sans-serif" font-size="9" fill="white">• Alfa AWUS036NEH</text>
+    <text x="15" y="115" font-family="Arial, sans-serif" font-size="9" fill="white">• Alfa AWUS036ACH</text>
+    <text x="15" y="130" font-family="Arial, sans-serif" font-size="9" fill="white">• BrosTrend AC1L</text>
+    <text x="15" y="145" font-family="Arial, sans-serif" font-size="9" fill="white">• Powerbank + Keyboard</text>
+    
+    <!-- Software List Right Column -->
+    <text x="170" y="70" font-family="Arial, sans-serif" font-size="10" fill="white" font-weight="bold">Software:</text>
+    <text x="170" y="85" font-family="Arial, sans-serif" font-size="9" fill="white">• OpenVPN Client</text>
+    <text x="170" y="100" font-family="Arial, sans-serif" font-size="9" fill="white">• SSH Tunnels</text>
+    <text x="170" y="115" font-family="Arial, sans-serif" font-size="9" fill="white">• Web Dashboard</text>
+    <text x="170" y="130" font-family="Arial, sans-serif" font-size="9" fill="white">• Pentest Suite</text>
+    <text x="170" y="145" font-family="Arial, sans-serif" font-size="9" fill="white">• Credential Harvester</text>
+    
+    <text x="160" y="170" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="white" font-weight="bold">IP: 192.168.10.1 | Web: :8080</text>
+  </g>
+  
+  <!-- Internal Network Switch -->
+  <g transform="translate(520,520)">
+    <rect width="240" height="60" fill="#4da6ff" stroke="#0066cc" stroke-width="2" rx="5" filter="url(#shadow)"/>
+    <text x="120" y="35" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="white">Internal Switch</text>
+    <text x="120" y="50" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="white">Physical Connection</text>
+  </g>
+  
+  <!-- Target Servers - Top Row -->
+  <g transform="translate(950,150)">
+    <rect width="130" height="80" fill="#6699ff" stroke="#0066cc" stroke-width="2" rx="5" filter="url(#shadow)"/>
+    <text x="65" y="25" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="white">Domain</text>
+    <text x="65" y="40" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="white">Controller</text>
+    <text x="65" y="60" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="white">RDP/SMB/LDAP</text>
+  </g>
+  
+  <g transform="translate(1150,150)">
+    <rect width="130" height="80" fill="#6699ff" stroke="#0066cc" stroke-width="2" rx="5" filter="url(#shadow)"/>
+    <text x="65" y="25" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="white">Database</text>
+    <text x="65" y="40" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="white">Server</text>
+    <text x="65" y="60" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="white">MySQL/MSSQL</text>
+  </g>
+  
+  <!-- Target Servers - Bottom Row -->
+  <g transform="translate(950,300)">
+    <rect width="130" height="80" fill="#6699ff" stroke="#0066cc" stroke-width="2" rx="5" filter="url(#shadow)"/>
+    <text x="65" y="25" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="white">File Server</text>
+    <text x="65" y="50" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="white">SMB Shares</text>
+    <text x="65" y="65" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="white">Confidential Data</text>
+  </g>
+  
+  <g transform="translate(1150,300)">
+    <rect width="130" height="80" fill="#6699ff" stroke="#0066cc" stroke-width="2" rx="5" filter="url(#shadow)"/>
+    <text x="65" y="25" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="white">Admin</text>
+    <text x="65" y="40" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="white">Workstation</text>
+    <text x="65" y="60" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="white">SSH/WinRM</text>
+  </g>
+  
+  <!-- WiFi Targets for Pentest -->
+  <g transform="translate(950,550)">
+    <rect width="130" height="60" fill="#ff9966" stroke="#cc6600" stroke-width="2" rx="5" filter="url(#shadow)"/>
+    <text x="65" y="25" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="white">WiFi AP</text>
+    <text x="65" y="40" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="white">WPA2/WPS Target</text>
+  </g>
+  
+  <g transform="translate(1150,550)">
+    <rect width="130" height="60" fill="#ff9966" stroke="#cc6600" stroke-width="2" rx="5" filter="url(#shadow)"/>
+    <text x="65" y="25" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="white">Corporate</text>
+    <text x="65" y="40" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="white">WiFi Network</text>
+  </g>
+  
+  <!-- Connection Arrows - Bien séparées -->
+  
+  <!-- Mode 1: OpenVPN Connection (ligne courbe haut) -->
+  <path d="M 210 150 Q 300 120 480 320" stroke="#ff0000" stroke-width="3" stroke-dasharray="8,4" fill="none" marker-end="url(#arrowhead)"/>
+  <text x="320" y="210" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="#ff0000" font-weight="bold" transform="rotate(-15 320 210)">Mode 1: OpenVPN</text>
+  
+  <!-- Mode 2: WiFi Hotspot (ligne courbe bas) -->
+  <path d="M 210 390 Q 300 450 480 400" stroke="#00cc66" stroke-width="3" fill="none" marker-end="url(#arrowhead)"/>
+  <text x="320" y="430" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="#00cc66" font-weight="bold">Mode 2: WiFi Hotspot</text>
+  
+  <!-- WiFi Waves visualization -->
+  <g transform="translate(400,390)">
+    <path d="M 0 0 Q 20 -15 40 0" stroke="#00cc66" stroke-width="2" fill="none"/>
+    <path d="M -10 15 Q 20 0 50 15" stroke="#00cc66" stroke-width="2" fill="none"/>
+    <path d="M -20 30 Q 20 15 60 30" stroke="#00cc66" stroke-width="2" fill="none"/>
+  </g>
+  
+  <!-- Physical Ethernet Connection -->
+  <line x1="640" y1="460" x2="640" y2="520" stroke="#009944" stroke-width="4" marker-end="url(#arrowhead)"/>
+  <text x="660" y="490" font-family="Arial, sans-serif" font-size="11" fill="#009944" font-weight="bold">Ethernet</text>
+  
+  <!-- Network Discovery Connections - Bien espacées -->
+  <path d="M 760 550 Q 850 250 950 190" stroke="#0066cc" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>
+  <path d="M 760 550 Q 900 250 1150 190" stroke="#0066cc" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>
+  <path d="M 760 550 Q 850 400 950 340" stroke="#0066cc" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>
+  <path d="M 760 550 Q 900 400 1150 340" stroke="#0066cc" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>
+  
+  <!-- WiFi Pentest Connections - Mode 3 -->
+  <path d="M 800 380 Q 870 500 950 580" stroke="#ff6600" stroke-width="3" fill="none" marker-end="url(#arrowhead)"/>
+  <path d="M 800 380 Q 970 480 1150 580" stroke="#ff6600" stroke-width="3" fill="none" marker-end="url(#arrowhead)"/>
+  <text x="900" y="520" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="#ff6600" font-weight="bold">Mode 3: WiFi Attacks</text>
+  
+  <!-- Mode Descriptions -->
+  <g transform="translate(50,500)">
+    <rect width="280" height="320" fill="#fff8e1" stroke="#ff9800" stroke-width="2" rx="5" filter="url(#shadow)"/>
+    <text x="140" y="25" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="#e65100">Modes d'Utilisation</text>
+    
+    <text x="10" y="50" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#d84315">Mode 1: Remote Network Pivot</text>
+    <text x="10" y="65" font-family="Arial, sans-serif" font-size="10" fill="#333">• Implant branché sur réseau interne</text>
+    <text x="10" y="80" font-family="Arial, sans-serif" font-size="10" fill="#333">• Tunnel OpenVPN vers serveur externe</text>
+    <text x="10" y="95" font-family="Arial, sans-serif" font-size="10" fill="#333">• Accès réseau interne depuis extérieur</text>
+    <text x="10" y="110" font-family="Arial, sans-serif" font-size="10" fill="#333">• SSH tunnels + port forwarding</text>
+    
+    <text x="10" y="135" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#388e3c">Mode 2: On-site WiFi Hotspot</text>
+    <text x="10" y="150" font-family="Arial, sans-serif" font-size="10" fill="#333">• RaspPunzel = point d'accès WiFi</text>
+    <text x="10" y="165" font-family="Arial, sans-serif" font-size="10" fill="#333">• Auditeur se connecte au hotspot</text>
+    <text x="10" y="180" font-family="Arial, sans-serif" font-size="10" fill="#333">• Accès direct réseau interne</text>
+    <text x="10" y="195" font-family="Arial, sans-serif" font-size="10" fill="#333">• SSID caché: MAINTENANCE_WIFI</text>
+    
+    <text x="10" y="220" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#f57c00">Mode 3: WiFi Penetration Testing</text>
+    <text x="10" y="235" font-family="Arial, sans-serif" font-size="10" fill="#333">• Attaques WiFi avec adaptateurs</text>
+    <text x="10" y="250" font-family="Arial, sans-serif" font-size="10" fill="#333">• WPA/WPA2 cracking (aircrack-ng)</text>
+    <text x="10" y="265" font-family="Arial, sans-serif" font-size="10" fill="#333">• WPS attacks (reaver, bully)</text>
+    <text x="10" y="280" font-family="Arial, sans-serif" font-size="10" fill="#333">• Evil twin / rogue AP attacks</text>
+    <text x="10" y="295" font-family="Arial, sans-serif" font-size="10" fill="#333">• Multi-adapter pour monitor mode</text>
+  </g>
+  
+  <!-- Hardware Requirements -->
+  <g transform="translate(400,650)">
+    <rect width="950" height="180" fill="#f3e5f5" stroke="#9c27b0" stroke-width="2" rx="5" filter="url(#shadow)"/>
+    <text x="475" y="25" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="#7b1fa2">Matériel Requis</text>
+    
+    <!-- Core Hardware Column -->
+    <text x="20" y="50" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="#4a148c">Core Hardware:</text>
+    <text x="20" y="65" font-family="Arial, sans-serif" font-size="10" fill="#333">• Raspberry Pi 3 Model B+</text>
+    <text x="20" y="80" font-family="Arial, sans-serif" font-size="10" fill="#333">• Micro SD 64GB Class 10</text>
+    <text x="20" y="95" font-family="Arial, sans-serif" font-size="10" fill="#333">• Raspberry Pi Case</text>
+    <text x="20" y="110" font-family="Arial, sans-serif" font-size="10" fill="#333">• USB Male to Female cables</text>
+    
+    <!-- WiFi Adapters Column -->
+    <text x="250" y="50" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="#4a148c">WiFi Adapters:</text>
+    <text x="250" y="65" font-family="Arial, sans-serif" font-size="10" fill="#333">• Alfa AWUS036NEH (2.4GHz)</text>
+    <text x="250" y="80" font-family="Arial, sans-serif" font-size="10" fill="#333">• Alfa AWUS036ACH (5GHz)</text>
+    <text x="250" y="95" font-family="Arial, sans-serif" font-size="10" fill="#333">• BrosTrend AC1L (AP Mode)</text>
+    <text x="250" y="110" font-family="Arial, sans-serif" font-size="10" fill="#333">• Support monitor mode</text>
+    
+    <!-- Accessories Column -->
+    <text x="480" y="50" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="#4a148c">Accessories:</text>
+    <text x="480" y="65" font-family="Arial, sans-serif" font-size="10" fill="#333">• Powerbank 10000mAh+</text>
+    <text x="480" y="80" font-family="Arial, sans-serif" font-size="10" fill="#333">• Rii Mini Wireless Keyboard</text>
+    <text x="480" y="95" font-family="Arial, sans-serif" font-size="10" fill="#333">• Portable et discret</text>
+    
+    <!-- Usage Scenarios Column -->
+    <text x="680" y="50" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="#4a148c">Scénarios:</text>
+    <text x="680" y="65" font-family="Arial, sans-serif" font-size="10" fill="#333">• Red Team / Pentest</text>
+    <text x="680" y="80" font-family="Arial, sans-serif" font-size="10" fill="#333">• WiFi Security Audit</text>
+    <text x="680" y="95" font-family="Arial, sans-serif" font-size="10" fill="#333">• Network Infiltration</text>
+    <text x="680" y="110" font-family="Arial, sans-serif" font-size="10" fill="#333">• Physical Implant</text>
+  </g>
+</svg>
