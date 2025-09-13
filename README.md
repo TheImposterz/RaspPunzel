@@ -1,427 +1,415 @@
-# RaspPunzel 🚀
+# RaspPunzel
 
-**Implant RedTeam portable basé sur Raspberry Pi**
+**Professional Penetration Testing Platform for Raspberry Pi**
 
-Un outil discret et autonome pour les tests d'intrusion, engagements RedTeam et évaluations de sécurité WiFi.
+A discrete and autonomous penetration testing implant designed for red team operations, security assessments, and authorized network evaluations.
 
-![RaspPunzel Banner](https://img.shields.io/badge/RaspPunzel-v1.0-green?style=for-the-badge) ![Platform](https://img.shields.io/badge/Platform-Raspberry_Pi-red?style=for-the-badge) ![OS](https://img.shields.io/badge/OS-Kali_Linux_ARM-blue?style=for-the-badge)
+![Platform](https://img.shields.io/badge/Platform-Raspberry_Pi-red?style=flat-square) ![OS](https://img.shields.io/badge/OS-Kali_Linux_ARM-blue?style=flat-square) ![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)
+
+
+![alt text](./img/archi.svg)
+
 
 ---
 
-## 📋 Équipement Requis
+## Hardware Requirements
 
-| Composant | Spécification | Status |
+| Component | Specification | Status |
 |-----------|---------------|---------|
-| **Raspberry Pi** | 4 (recommandé) ou 3B+ | ✅ Requis |
-| **Carte SD** | 32GB minimum, Classe 10 | ✅ Requis |
-| **Adaptateur WiFi** | USB compatible monitor mode | ✅ Requis |
-| **Alimentation** | Power bank portable | 🔋 Recommandé |
-| **Boîtier** | Discret pour déploiement | 📦 Optionnel |
+| **Raspberry Pi** | 3 Model B+ or 4 (recommended) | Required |
+| **MicroSD Card** | 64GB Class 10 minimum | Required |
+| **WiFi Adapters** | Multiple USB adapters with monitor mode | Required |
+| **Power Supply** | Portable power bank 10,000mAh+ | Recommended |
+| **Enclosure** | Discrete case for deployment | Optional |
 
-### 📶 Adaptateurs WiFi Testés
-- **Alfa AWUS036NEH** - Ralink RT3070 (2.4GHz)
-- **Alfa AWUS036ACH** - Realtek RTL8812AU (2.4/5GHz)
-- **TP-Link AC600** - Realtek RTL8811AU
-- **Panda PAU09** - Ralink RT5372
+### Tested WiFi Adapters
 
----
+**Primary Adapters (Recommended):**
+- **Alfa AWUS036NEH** - Ralink RT3070 chipset (2.4GHz)
+- **Alfa AWUS036ACH** - Realtek RTL8812AU chipset (2.4/5GHz)
+- **BrosTrend AC1L AC1200** - Suitable for AP mode
 
-## 🎯 Fonctionnalités Principales
-
-### 🌐 **Accès Distant Multi-Interface**
-- 📡 **Point d'accès WiFi caché** pour administration discrète
-- 🔐 **SSH sécurisé** avec authentification par clé
-- 💻 **Interface web moderne** avec contrôle en temps réel
-- 🔄 **Auto-recovery** en cas de perte de connexion
-
-### ⚔️ **Arsenal d'Outils Préinstallés**
-- 🔍 **Reconnaissance avancée** (Nmap, Masscan, Kismet)
-- 📶 **Attaques WiFi complètes** (Aircrack-ng, Wifite, Reaver)
-- 🎯 **Exploitation ciblée** (Metasploit, Empire, Bettercap)
-- 🔓 **Crackage de mots de passe** (John, Hashcat, Hydra)
-- 🌐 **Sécurité web** (SQLMap, Nikto, Gobuster)
-
-### 🏗️ **Infrastructure Robuste**
-- 🚀 **Configuration automatique** au démarrage
-- 📊 **Monitoring système** en temps réel
-- 📝 **Logs détaillés** et rotation automatique
-- 🔄 **Mises à jour automatisées** des outils
+**Alternative Adapters:**
+- TP-Link AC600 series
+- Panda PAU09
+- Any adapter with confirmed monitor mode support
 
 ---
 
-## ⚡ Installation Rapide
+## Core Capabilities
 
-### 🔥 **Installation One-Shot**
+### Network Access Methods
+
+**Mode 1: Remote Network Pivot**
+- OpenVPN tunnel establishment for remote access
+- SSH tunneling and port forwarding
+- Encrypted command and control channel
+- Network discovery and mapping
+
+**Mode 2: On-site WiFi Hotspot**
+- Hidden WiFi access point deployment
+- Direct network access via wireless connection
+- Discrete maintenance access
+- Local administration interface
+
+**Mode 3: WiFi Penetration Testing**
+- WPA/WPA2/WPS security assessment
+- Evil twin and rogue access point attacks
+- Wireless network reconnaissance
+- Multi-adapter coordination
+
+### Integrated Tool Suite
+
+**Network Reconnaissance:**
+- Nmap - Network discovery and port scanning
+- Masscan - High-speed port scanner
+- Kismet - Wireless network detector
+- Network topology mapping
+
+**Wireless Security Testing:**
+- Aircrack-ng suite - Complete WiFi security toolkit
+- Wifite - Automated wireless attacks
+- Reaver/Bully - WPS vulnerability testing
+- Wifiphisher - Rogue access point framework
+
+**Web Application Security:**
+- SQLMap - SQL injection testing
+- Nikto - Web vulnerability scanner  
+- Gobuster - Directory and file brute forcing
+- OWASP ZAP integration
+
+**Password Security:**
+- John the Ripper - Password hash cracking
+- Hashcat - GPU-accelerated password recovery
+- Hydra - Network authentication brute forcing
+- Wordlist management and generation
+
+**Post-Exploitation:**
+- Metasploit Framework
+- Network pivoting capabilities
+- Credential harvesting
+- Persistence mechanisms
+
+---
+
+## Installation
+
+### Automated Installation
+
 ```bash
-# Cloner le repository
 git clone https://github.com/theimposterz/rasppunzel.git
 cd rasppunzel
-
-# Installation automatisée (configuration interactive)
 sudo ./install.sh
-
-# Redémarrage pour finaliser
-sudo reboot
-```
----
-
-## 🌐 Accès à l'Implant
-
-### 📡 **Via Point d'Accès Caché (Méthode Principale)**
-```
-📶 SSID: MAINTENANCE_WIFI (réseau caché)
-🔐 Mot de passe: SecureP@ss123!
-🌐 IP Implant: 192.168.10.1
-📍 Portée: ~50m (selon environnement)
 ```
 
-### 🔌 **Via Réseau Local**
+The installation script will:
+1. Configure interactive parameters
+2. Install required dependencies
+3. Set up network services
+4. Configure web dashboard
+5. Install penetration testing tools
+6. Create authentication credentials
+
+### Manual Configuration
+
+For advanced users requiring custom configurations:
+
 ```bash
-# Découvrir l'IP de RaspPunzel
-nmap -sn 192.168.1.0/24 | grep -B2 "Raspberry Pi"
+# Network configuration
+sudo ./scripts/setup-network.sh
 
-# Connexion directe
-ssh admin@<ip-découverte>
+# Tool installation
+sudo ./scripts/setup-tools.sh
+
+# Web dashboard setup
+sudo ./scripts/install-web-dashboard.sh
+
+# Service management
+sudo ./scripts/service-manager.sh
 ```
 
-### 💻 **Interfaces de Contrôle**
+---
 
-| Interface | URL/Commande | Description |
-|-----------|-------------|-------------|
-| 🌐 **Dashboard Web** | `http://192.168.10.1:8080` | Interface graphique complète |
-| 💻 **SSH** | `ssh admin@192.168.10.1` | Ligne de commande sécurisée |
-| 📱 **API REST** | `http://192.168.10.1:8080/api/` | Contrôle programmatique |
+## Access Methods
+
+### WiFi Access Point
+
+```
+Network Name: MAINTENANCE_WIFI (hidden)
+Authentication: WPA2-PSK
+Default IP: 192.168.10.1
+Web Interface: http://192.168.10.1:8080
+```
+
+### SSH Access
+
+```bash
+ssh admin@192.168.10.1
+# Authentication: Username/password or SSH key
+```
+
+### Web Dashboard
+
+The web interface provides:
+- Real-time system monitoring
+- Tool execution and management
+- Network discovery results
+- Log viewing and analysis
+- Service control
 
 ---
 
-## 🛠️ Arsenal d'Outils Intégré
-
-### 🔍 **Reconnaissance & Intelligence**
-- **Nmap** - Scanner de ports et découverte réseau
-- **Masscan** - Scanner haute performance
-- **Kismet** - Détection WiFi passive
-- **TheHarvester** - OSINT et reconnaissance
-- **Recon-ng** - Framework de reconnaissance
-
-### 📶 **Attaques WiFi Spécialisées**
-- **Aircrack-ng Suite** - Outils WiFi complets
-- **Wifite** - Attaques automatisées
-- **Wifiphisher** - Rogue AP et phishing
-- **Wifipumpkin3** - Framework d'attaque WiFi
-- **EAPHammer** - Attaques EAP et WPA-Enterprise
-- **Fluxion** - Attaques de déauthentification
-
-### 🎯 **Exploitation & Post-Exploitation**
-- **Metasploit Framework** - Exploitation modulaire
-- **Empire** - Post-exploitation PowerShell
-- **Social Engineer Toolkit** - Ingénierie sociale
-- **BeEF** - Exploitation navigateur
-
-### 🌐 **Sécurité Web & Applications**
-- **SQLMap** - Injection SQL automatisée
-- **Nikto** - Scanner vulnérabilités web
-- **Gobuster** - Brute force répertoires/fichiers
-- **OWASP ZAP** - Proxy de sécurité
-- **XSStrike** - Détection XSS avancée
-
-### 🔓 **Crackage & Brute Force**
-- **John the Ripper** - Crackeur de hash universel
-- **Hashcat** - Crackage GPU haute performance
-- **Hydra** - Brute force réseau
-- **Medusa** - Attaques par dictionnaire
-
-### 🕵️ **Analyse & Forensique**
-- **Wireshark** - Analyseur de protocoles
-- **Binwalk** - Analyse de firmware
-- **Foremost** - Récupération de fichiers
-- **Volatility** - Analyse mémoire
-
----
-
-## 📁 Architecture du Projet
+## Architecture
 
 ```
 rasppunzel/
-├── 📄 README.md                    # Documentation principale
-├── 🚀 install.sh                   # Installation automatisée
-├── 📜 scripts/                     # Scripts de gestion
-│   ├── setup-network.sh            # Configuration réseau
-│   ├── install-tools.sh            # Installation des outils
-│   ├── service-manager.sh          # Gestionnaire de services
-│   ├── update-system.sh            # Mises à jour système
-│   ├── start-services.sh           # Démarrage des services
-│   └── stop-services.sh            # Arrêt des services
-├── 🌐 web/                         # Interface web
-│   └── dashboard.html              # Dashboard principal
-├── ⚙️ config/                      # Fichiers de configuration
-│   ├── network/                    # Configuration réseau
-│   │   ├── hostapd.conf.template   # Point d'accès WiFi
-│   │   ├── dnsmasq.conf.template   # Serveur DHCP/DNS
-│   │   └── interfaces.template     # Interfaces réseau
-│   ├── services/                   # Configuration des services
-│   │   ├── nginx-rasppunzel.conf   # Serveur web
-│   │   └── ssh-config.template     # Configuration SSH
-│   └── systemd/                    # Services système
-│       ├── rasppunzel-tower.service
-│       └── rasppunzel-network.service
-├── 📚 examples/                    # Guides et exemples
-│   └── usage-guide.md             # Guide d'utilisation complet
-├── 🔧 Makefile                     # Automatisation
-├── 📄 LICENSE                      # Licence MIT
-└── 🚫 .gitignore                   # Fichiers à ignorer
+├── install.sh                     # Main installation script
+├── scripts/                       # Management scripts
+│   ├── setup-network.sh          # Network configuration
+│   ├── setup-tools.sh            # Tool installation
+│   ├── install-web-dashboard.sh  # Web interface setup
+│   ├── service-manager.sh        # Service management
+│   └── update-system.sh          # System updates
+├── web/                           # Web interface
+│   ├── dashboard.html            # Main dashboard
+│   ├── login.html               # Authentication page
+│   └── api/                     # Backend API
+├── config/                        # Configuration templates
+│   ├── network/                  # Network settings
+│   ├── services/                # Service configurations
+│   └── systemd/                 # System services
+└── examples/                     # Usage documentation
 ```
 
 ---
 
-## 🎮 Guide d'Utilisation Rapide
+## Usage Examples
 
-### 🚀 **Déploiement sur Site**
-1. **Préparation**: Charger la power bank, vérifier la carte SD
-2. **Déploiement**: Placer discrètement le Pi dans la zone cible
-3. **Activation**: Le Pi démarre automatiquement et active le point d'accès
-4. **Connexion**: Se connecter au WiFi `MAINTENANCE_WIFI`
-5. **Contrôle**: Accéder à `http://192.168.10.1:8080`
-
-### 🔧 **Commandes de Base**
+### Network Discovery
 
 ```bash
-# 🚀 Gestion des services
-make start          # Démarrer tous les services
-make stop           # Arrêter tous les services  
-make restart        # Redémarrer tous les services
-make status         # Afficher l'état détaillé
-make update         # Mettre à jour le système
+# Host discovery
+nmap -sn 192.168.1.0/24
 
-# 🛠️ Scripts de gestion avancés
-sudo ./scripts/service-manager.sh menu    # Menu interactif
-sudo ./scripts/update-system.sh full      # Mise à jour complète
-sudo ./scripts/setup-network.sh           # Reconfigurer le réseau
+# Port scanning with OS detection
+nmap -sS -O -sV target_ip
 
-# 📊 Monitoring et logs
-sudo journalctl -u rasppunzel-tower -f    # Logs en temps réel
-sudo ./scripts/service-manager.sh logs    # Afficher les logs
-sudo ./scripts/service-manager.sh check   # Test de connectivité
+# Network topology mapping
+nmap --traceroute --script traceroute-geolocation target_network
 ```
 
-### 🎯 **Exemples d'Attaques**
+### WiFi Security Assessment
 
 ```bash
-# 🔍 Reconnaissance réseau
-nmap -sn 192.168.10.0/24              # Découverte d'hôtes
-nmap -sS -O 192.168.10.5              # Scan furtif avec OS detection
-
-# 📶 Attaques WiFi automatisées
+# Automated wireless testing
 wifite --wpa --dict /usr/share/wordlists/rockyou.txt
 
-# 🎯 Exploitation avec Metasploit
-msfconsole -r /opt/rasppunzel-tools/scripts/auto_exploit.rc
+# WPS vulnerability testing
+reaver -i wlan1mon -b target_bssid -vv
 
-# 🌐 Test de sécurité web
-nikto -h http://192.168.10.5
-sqlmap -u "http://192.168.10.5/login.php" --forms --batch
+# Evil twin attack
+wifiphisher -aI wlan1 -jI wlan0
+```
+
+### Web Application Testing
+
+```bash
+# Vulnerability scanning
+nikto -h http://target.com
+
+# SQL injection testing
+sqlmap -u "http://target.com/page.php?id=1" --batch --dbs
+
+# Directory enumeration
+gobuster dir -u http://target.com -w /usr/share/wordlists/dirb/common.txt
 ```
 
 ---
 
-## 🔒 Sécurité & Configuration
+## Service Management
 
-### 🛡️ **Sécurisation Post-Installation**
+### System Commands
 
 ```bash
-# Changer les mots de passe par défaut
-sudo passwd admin                    # Mot de passe utilisateur
-sudo nano /etc/hostapd/hostapd.conf  # Mot de passe WiFi
+# Service control
+make start          # Start all services
+make stop           # Stop all services
+make restart        # Restart services
+make status         # System status
 
-# Générer des clés SSH
-ssh-keygen -t ed25519 -C "rasppunzel@$(hostname)"
-cat ~/.ssh/id_ed25519.pub >> ~/.ssh/authorized_keys
-
-# Désactiver l'authentification par mot de passe SSH
-sudo sed -i 's/PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config
-sudo systemctl restart ssh
+# Advanced management
+./scripts/service-manager.sh menu    # Interactive menu
+./scripts/update-system.sh full      # Complete update
 ```
 
-### 🔐 **Configuration WiFi Avancée**
+### Monitoring
 
 ```bash
-# Changer le canal WiFi (éviter les interférences)
+# Real-time logs
+sudo journalctl -u rasppunzel-web -f
+
+# System health check
+./scripts/service-manager.sh check
+
+# Performance monitoring
+htop
+iotop
+```
+
+---
+
+## Security Considerations
+
+### Post-Installation Security
+
+1. **Change Default Credentials:**
+```bash
+sudo passwd admin
 sudo nano /etc/hostapd/hostapd.conf
-# Modifier: channel=6 (1-11 pour 2.4GHz, 36-165 pour 5GHz)
-
-# Ajuster la puissance de transmission
-echo "iwconfig wlan1 txpower 15" >> /etc/rc.local
-
-# Configuration 5GHz (si supporté)
-hw_mode=a
-channel=36
 ```
+
+2. **SSH Key Authentication:**
+```bash
+ssh-keygen -t ed25519 -C "rasppunzel@deployment"
+# Copy public key to authorized_keys
+# Disable password authentication
+```
+
+3. **Network Configuration:**
+```bash
+# Change WiFi channel to avoid interference
+sudo nano /etc/hostapd/hostapd.conf
+# Adjust transmission power
+iwconfig wlan1 txpower 15
+```
+
+### Operational Security
+
+- Deploy in locations with appropriate physical security
+- Use encrypted communication channels
+- Regularly update system and tools
+- Monitor for detection and anomalies
+- Maintain operational logs for assessment
 
 ---
 
-## 📊 Monitoring & Performance
+## Use Cases
 
-### 📈 **Métriques Système**
-- **CPU**: Raspberry Pi 4 (ARM Cortex-A72 1.5GHz)
-- **RAM**: Utilisation optimisée (~500MB en fonctionnement)
-- **Stockage**: ~8GB utilisés après installation complète
-- **Réseau**: Point d'accès 150Mbps (802.11n)
-- **Autonomie**: 6-8h avec power bank 10.000mAh
+### Authorized Penetration Testing
+- Internal network security assessment
+- Wireless security evaluation
+- Physical security testing
+- Social engineering assessments
 
-### 📊 **Dashboard Temps Réel**
-L'interface web affiche :
-- 🔋 État de la batterie et température CPU
-- 📊 Utilisation RAM/CPU en temps réel
-- 🌐 Clients connectés au point d'accès
-- 📡 Qualité du signal WiFi
-- 📝 Logs des outils en cours d'exécution
+### Red Team Operations
+- Persistent network access establishment
+- Covert operations support
+- Network reconnaissance and mapping
+- Lateral movement facilitation
 
----
-
-## 🚨 Scénarios d'Usage
-
-### 🏢 **Test d'Intrusion Entreprise**
-```bash
-# 1. Déploiement discret dans les locaux
-# 2. Connexion au réseau interne via Ethernet
-# 3. Reconnaissance réseau automatisée...
-```
-
-### 🏠 **Audit Sécurité WiFi Résidentiel**
-```bash
-# 1. Scan des réseaux WiFi environnants
-# 2. Test de sécurité WPS/WPA
-# 3. Attaques de déauthentification
-# 4. Analyse des mots de passe faibles
-```
-
-### 🎓 **Formation Cybersécurité**
-```bash
-# 1. Environnement d'apprentissage isolé
-# 2. Exercices pratiques guidés
-# 3. Simulation d'attaques réalistes
-# 4. Laboratoire portable autonome
-```
+### Security Training
+- Controlled environment testing
+- Hands-on cybersecurity education
+- Scenario-based learning
+- Practical tool demonstration
 
 ---
 
-## 🔧 Dépannage
+## Troubleshooting
 
-### ❗ **Problèmes Courants**
+### Common Issues
 
-| Problème | Symptôme | Solution |
-|----------|----------|----------|
-| 📶 **WiFi non visible** | SSID absent des réseaux | `sudo systemctl restart hostapd` |
-| 🌐 **Pas d'IP DHCP** | Connexion WiFi sans Internet | `sudo systemctl restart dnsmasq` |
-| 💻 **Interface web inaccessible** | Erreur 502/503 | `sudo systemctl restart nginx` |
-| 🔌 **Interface USB non détectée** | `wlan1` absent | Vérifier pilotes avec `dmesg` |
+| Issue | Solution |
+|-------|----------|
+| WiFi interface not detected | Check USB adapter compatibility and drivers |
+| Web interface inaccessible | Restart nginx service |
+| No DHCP assignments | Restart dnsmasq service |
+| Tool execution failures | Verify PATH environment variables |
 
-### 🛠️ **Commandes de Diagnostic**
+### Diagnostic Commands
 
 ```bash
-# Test complet du système
-sudo ./scripts/service-manager.sh check
+# System health check
+./scripts/service-manager.sh check
 
-# Vérification des interfaces réseau
+# Network interface status
 ip addr show && iwconfig
 
-# Test de connectivité
-ping -c 4 8.8.8.8 && ping -c 4 192.168.10.1
+# Service status
+systemctl status rasppunzel-web
+systemctl status hostapd
+systemctl status dnsmasq
 
-# Logs détaillés
-sudo journalctl -u rasppunzel-tower --since "1 hour ago"
+# Log analysis
+sudo journalctl --since "1 hour ago"
 ```
 
 ---
 
-## 🤝 Contribution
+## Legal Notice
 
-### 💡 **Contribuer au Projet**
-```bash
-# Fork du repository
-git clone https://github.com/theimposterz/rasppunzel.git
+**AUTHORIZED USE ONLY**
 
-# Créer une branche feature
-git checkout -b feature/nouvelle-fonctionnalite
+This tool is designed exclusively for authorized security testing by qualified professionals. Users must:
 
-# Commiter les changements
-git commit -m "feat: ajout nouvelle fonctionnalité"
+- Obtain explicit written authorization before deployment
+- Comply with all applicable laws and regulations
+- Use only for legitimate security testing purposes
+- Respect privacy and data protection requirements
+- Document and report findings responsibly
 
-# Push et Pull Request
-git push origin feature/nouvelle-fonctionnalite
-```
-
-### 🐛 **Rapporter des Bugs**
-- Utiliser les **Issues GitHub** 
-- Inclure les **logs système** et **version du Pi**
-- Préciser le **scénario de reproduction**
+Unauthorized access to computer systems is illegal. Users assume full responsibility for lawful and ethical use.
 
 ---
 
-## 📜 Changelog
+## Contributing
 
-### 🆕 **v1.0.0** - Release Initiale
-- ✅ Installation automatisée complète
-- ✅ Interface web moderne avec thème Matrix
-- ✅ 50+ outils de pentest préinstallés
-- ✅ Point d'accès WiFi caché fonctionnel
-- ✅ Scripts de gestion complets
-- ✅ Documentation exhaustive
+Contributions are welcome from security professionals and researchers:
 
-### 🔮 **Roadmap v1.1**
-- 🔄 Support 4G/LTE pour accès distant
-- 📱 Application mobile de contrôle
-- 🤖 Automatisation IA pour reconnaissance
-- 🔐 Certificats SSL auto-générés
-- 📊 Dashboard analytics avancé
+1. Fork the repository
+2. Create a feature branch
+3. Implement improvements with proper testing
+4. Submit a pull request with detailed documentation
 
----
+### Reporting Security Issues
 
-## ⚠️ Avertissement Légal
-
-> **🚨 UTILISATION STRICTEMENT LÉGALE UNIQUEMENT**
-> 
-> RaspPunzel est un outil destiné **exclusivement** aux professionnels de la cybersécurité pour :
-> - ✅ **Tests d'intrusion autorisés** avec contrat signé
-> - ✅ **Formation et éducation** en cybersécurité  
-> - ✅ **Recherche académique** et développement
-> - ✅ **Audit de sécurité** de ses propres systèmes
->
-> ❌ **INTERDIT POUR :**
-> - Accès non autorisé à des systèmes tiers
-> - Activités malveillantes ou criminelles
-> - Violation de la vie privée
-> - Toute utilisation illégale dans votre juridiction
->
-> L'utilisateur assume **l'entière responsabilité** de l'usage conforme aux lois locales.
+For security vulnerabilities or concerns:
+- Use private disclosure through GitHub Security Advisories
+- Include detailed reproduction steps
+- Allow reasonable time for response and fixes
 
 ---
 
-## 📞 Support & Communauté
+## Changelog
 
-### 🆘 **Obtenir de l'Aide**
-- 📋 **Issues GitHub** : [github.com/theimposterz/rasppunzel/issues](https://github.com/theimposterz/rasppunzel/issues)
-- 📖 **Wiki Documentation** : [github.com/theimposterz/rasppunzel/wiki](https://github.com/theimposterz/rasppunzel/wiki)
-- 💬 **Discussions** : [github.com/theimposterz/rasppunzel/discussions](https://github.com/theimposterz/rasppunzel/discussions)
+**v1.0.0** - Initial Release
+- Complete automated installation system
+- Multi-mode operation capabilities
+- Integrated web dashboard
+- Comprehensive tool suite
+- Professional documentation
 
-### 🌟 **Remerciements**
-- **Offensive Security** pour Kali Linux
-- **Raspberry Pi Foundation** 
-- **Communauté cybersécurité** open source
-- **Contributeurs** et testeurs du projet
+---
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+---
+
+## Acknowledgments
+
+- Offensive Security for Kali Linux
+- Raspberry Pi Foundation for hardware platform
+- Open source security community
+- Tool developers and maintainers
 
 ---
 
 <div align="center">
 
-**⭐ Si RaspPunzel vous a été utile, n'hésitez pas à mettre une étoile sur GitHub ! ⭐**
+**For authorized security testing only**
 
-[![GitHub stars](https://img.shields.io/github/stars/theimposterz/rasppunzel?style=social)](https://github.com/theimposterz/rasppunzel/stargazers)
-[![GitHub forks](https://img.shields.io/github/forks/theimposterz/rasppunzel?style=social)](https://github.com/theimposterz/rasppunzel/network)
-
----
-
-**Made with ❤️ for the cybersecurity community**
-
-`RaspPunzel v1.0 - "Libère tes cheveux... WiFi !"`
+RaspPunzel v1.0 - Professional Penetration Testing Platform
 
 </div>
