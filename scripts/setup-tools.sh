@@ -244,14 +244,7 @@ install_web_tools() {
     cd "$TOOLS_DIR"
     
     # OWASP ZAP
-    if [ ! -d "zaproxy" ]; then
-        wget -q https://github.com/zaproxy/zaproxy/releases/latest/download/ZAP_2.12.0_Linux.tar.gz -O zap.tar.gz 2>/dev/null || true
-        if [ -f "zap.tar.gz" ]; then
-            tar -xzf zap.tar.gz
-            mv ZAP_2.12.0 zaproxy 2>/dev/null || true
-            rm zap.tar.gz
-        fi
-    fi
+    
     
     # XSStrike
     if [ ! -d "XSStrike" ]; then
