@@ -12,18 +12,28 @@ import json
 import subprocess
 import threading
 import time
-from datetime import datetime
-from flask import Flask, request, jsonify, render_template, Response
+import hashlib
+from datetime import datetime, timedelta
+from flask import Flask, request, jsonify, render_template, Response, session, redirect, url_for
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit
 import psutil
 import signal
 from werkzeug.serving import make_server
+from functools import wraps
 
 app = Flask(__name__, template_folder='../')
 app.config['SECRET_KEY'] = 'rasppunzel-secret-key-2025'
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=8)  # Session expiration
 CORS(app)
-socketio = SocketIO(app, cors_allowed_origins="*")
+#socketio = SocketIO(app, cors_allowed_origins="*")
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
+# Configuration d'authentification
+AUTH_CONFIG = {
+    'username': 'admin',  # Par défaut, sera lu depuis config
+    'password_hash': '',  # Hash du mot de passe
+    'session_timeout': 480  # 8 heures en minutes
+}
 
 # Variables globales pour le suivi des processus
 running_processes = {}
@@ -32,6 +42,81 @@ system_status = {
     'services': False,
     'guacamole': False
 }
+
+def load_auth_config():
+    """Charge la configuration d'authentification depuis le fichier de config"""
+    try:
+        config_file = '/opt/rasppunzel/config/auth.json'
+        if os.path.exists(config_file):
+            with open(config_file, 'r') as f:
+                config = json.load(f)
+                AUTH_CONFIG['username'] = config.get('username', 'admin')
+                AUTH_CONFIG['password_hash'] = config.get('password_hash', '')
+        else:
+            # Valeurs par défaut si pas de fichier de config
+            default_password = 'RedTeam2025!'
+            AUTH_CONFIG['password_hash'] = hashlib.sha256(default_password.encode()).hexdigest()
+    except Exception as e:
+        print(f"[!] Erreur chargement config auth: {e}")
+        # Fallback sur mot de passe par défaut
+        default_password = 'RedTeam2025!'
+        AUTH_CONFIG['password_hash'] = hashlib.sha256(default_password.encode()).hexdigest()
+
+def hash_password(password):
+    """Hash un mot de passe avec SHA-256"""
+    return hashlib.sha256(password.encode()).hexdigest()
+
+def verify_password(password, password_hash):
+    """Vérifie un mot de passe contre son hash"""
+    return hashlib.sha256(password.encode()).hexdigest() == password_hash
+
+def login_required(f):
+    """Décorateur pour vérifier l'authentification"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'authenticated' not in session or not session['authenticated']:
+            if request.is_json:
+                return jsonify({'error': 'Authentication required', 'redirect': '/login'}), 401
+            return redirect(url_for('login'))
+        
+        # Vérifier l'expiration de session
+        if 'login_time' in session:
+            login_time = datetime.fromisoformat(session['login_time'])
+            if datetime.now() - login_time > timedelta(minutes=AUTH_CONFIG['session_timeout']):
+                session.clear()
+                if request.is_json:
+                    return jsonify({'error': 'Session expired', 'redirect': '/login'}), 401
+                return redirect(url_for('login'))
+        
+        return f(*args, **kwargs)
+    return decorated_function
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    """Page de connexion"""
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        
+        if (username == AUTH_CONFIG['username'] and 
+            verify_password(password, AUTH_CONFIG['password_hash'])):
+            
+            session['authenticated'] = True
+            session['username'] = username
+            session['login_time'] = datetime.now().isoformat()
+            session.permanent = True
+            
+            return redirect(url_for('dashboard'))
+        else:
+            return render_template('login.html', error='Identifiants incorrects')
+    
+    return render_template('login.html')
+
+@app.route('/logout')
+def logout():
+    """Déconnexion"""
+    session.clear()
+    return redirect(url_for('login'))
 
 class ProcessManager:
     """Gestionnaire des processus et outils"""
@@ -131,11 +216,13 @@ class ProcessManager:
 process_manager = ProcessManager()
 
 @app.route('/')
+@login_required
 def dashboard():
     """Page principale du dashboard"""
     return render_template('dashboard.html')
 
 @app.route('/api/status')
+@login_required
 def get_status():
     """Retourne le statut du système"""
     try:
@@ -177,6 +264,7 @@ def get_status():
         }), 500
 
 @app.route('/api/tools/<tool_name>/start', methods=['POST'])
+@login_required
 def start_tool(tool_name):
     """Démarre un outil spécifique"""
     try:
@@ -186,67 +274,67 @@ def start_tool(tool_name):
         # Configuration des outils
         tool_configs = {
             'nmap': {
-                'command': f'nmap {args} 2>&1',
+                'command': f'/usr/bin/nmap {args} 2>&1',
                 'description': 'Scan réseau avec Nmap'
             },
             'masscan': {
-                'command': f'masscan {args} 2>&1',
+                'command': f'/usr/bin/masscan {args} 2>&1',
                 'description': 'Scan rapide avec Masscan'
             },
             'kismet': {
-                'command': 'kismet -c wlan1mon --no-ncurses 2>&1',
+                'command': '/usr/bin/kismet -c wlan1mon --no-ncurses 2>&1',
                 'description': 'Monitoring WiFi avec Kismet'
             },
             'airodump': {
-                'command': f'airodump-ng {args} wlan1mon 2>&1',
+                'command': f'/usr/bin/airodump-ng {args} wlan1mon 2>&1',
                 'description': 'Capture WiFi avec Airodump'
             },
             'wifite': {
-                'command': f'wifite {args} 2>&1',
+                'command': f'/usr/bin/wifite {args} 2>&1',
                 'description': 'Attaque WiFi automatisée'
             },
             'aircrack': {
-                'command': f'aircrack-ng {args} 2>&1',
+                'command': f'/usr/bin/aircrack-ng {args} 2>&1',
                 'description': 'Crack WPA avec Aircrack'
             },
             'reaver': {
-                'command': f'reaver {args} 2>&1',
+                'command': f'/usr/bin/reaver {args} 2>&1',
                 'description': 'Attaque WPS avec Reaver'
             },
             'bully': {
-                'command': f'bully {args} 2>&1',
+                'command': f'/usr/bin/bully {args} 2>&1',
                 'description': 'Attaque WPS avec Bully'
             },
             'nikto': {
-                'command': f'nikto {args} 2>&1',
+                'command': f'/usr/bin/nikto {args} 2>&1',
                 'description': 'Scan de vulnérabilités web'
             },
             'gobuster': {
-                'command': f'gobuster {args} 2>&1',
+                'command': f'/usr/bin/gobuster {args} 2>&1',
                 'description': 'Brute force de répertoires'
             },
             'sqlmap': {
-                'command': f'sqlmap {args} 2>&1',
+                'command': f'/usr/bin/sqlmap {args} 2>&1',
                 'description': 'Test d\'injection SQL'
             },
             'hydra': {
-                'command': f'hydra {args} 2>&1',
+                'command': f'/usr/bin/hydra {args} 2>&1',
                 'description': 'Brute force avec Hydra'
             },
             'john': {
-                'command': f'john {args} 2>&1',
+                'command': f'/usr/bin/john {args} 2>&1',
                 'description': 'Crack de hash avec John'
             },
             'hashcat': {
-                'command': f'hashcat {args} 2>&1',
+                'command': f'/usr/bin/hashcat {args} 2>&1',
                 'description': 'Crack GPU avec Hashcat'
             },
             'medusa': {
-                'command': f'medusa {args} 2>&1',
+                'command': f'/usr/bin/medusa {args} 2>&1',
                 'description': 'Brute force multi-protocole'
             },
             'msfconsole': {
-                'command': 'msfconsole -q 2>&1',
+                'command': '/usr/bin/msfconsole -q 2>&1',
                 'description': 'Console Metasploit'
             },
             'beef': {
@@ -254,19 +342,19 @@ def start_tool(tool_name):
                 'description': 'Framework BeEF'
             },
             'wireshark': {
-                'command': 'wireshark 2>&1',
+                'command': '/usr/bin/wireshark 2>&1',
                 'description': 'Analyseur de paquets'
             },
             'ettercap': {
-                'command': f'ettercap {args} 2>&1',
+                'command': f'/usr/bin/ettercap {args} 2>&1',
                 'description': 'Attaque Man-in-the-Middle'
             },
             'bettercap': {
-                'command': f'bettercap {args} 2>&1',
+                'command': f'/usr/bin/bettercap {args} 2>&1',
                 'description': 'Framework d\'attaque réseau'
             },
             'tcpdump': {
-                'command': f'tcpdump {args} 2>&1',
+                'command': f'/usr/bin/tcpdump {args} 2>&1',
                 'description': 'Capture de paquets'
             }
         }
@@ -305,6 +393,7 @@ def start_tool(tool_name):
         }), 500
 
 @app.route('/api/tools/<tool_name>/stop', methods=['POST'])
+@login_required
 def stop_tool(tool_name):
     """Arrête un outil spécifique"""
     try:
@@ -329,6 +418,7 @@ def stop_tool(tool_name):
         }), 500
 
 @app.route('/api/services/start', methods=['POST'])
+@login_required
 def start_services():
     """Démarre les services système"""
     try:
@@ -372,6 +462,7 @@ def start_services():
         }), 500
 
 @app.route('/api/services/stop', methods=['POST'])
+@login_required
 def stop_services():
     """Arrête les services système"""
     try:
@@ -415,6 +506,7 @@ def stop_services():
         }), 500
 
 @app.route('/api/services/restart', methods=['POST'])
+@login_required
 def restart_services():
     """Redémarre les services système"""
     try:
@@ -458,6 +550,7 @@ def restart_services():
         }), 500
 
 @app.route('/api/system/update', methods=['POST'])
+@login_required
 def update_system():
     """Met à jour le système"""
     try:
@@ -479,6 +572,7 @@ def update_system():
         }), 500
 
 @app.route('/api/logs')
+@login_required
 def get_logs():
     """Retourne les logs système"""
     try:
@@ -564,6 +658,10 @@ def get_network_interfaces():
 @socketio.on('connect')
 def handle_connect():
     """Gestion des connexions WebSocket"""
+    # Vérifier l'auth pour WebSocket
+    if 'authenticated' not in session or not session['authenticated']:
+        return False
+    
     emit('connected', {
         'message': 'Connexion WebSocket établie',
         'timestamp': datetime.now().isoformat()
@@ -576,8 +674,12 @@ def handle_disconnect():
 
 def run_server(host='0.0.0.0', port=5000, debug=False):
     """Lance le serveur Flask"""
+    print(f"[+] Chargement de la configuration d'authentification...")
+    load_auth_config()
+    
     print(f"[+] Démarrage du serveur RaspPunzel Dashboard sur {host}:{port}")
     print(f"[+] Interface web accessible sur http://{host}:{port}")
+    print(f"[+] Utilisateur: {AUTH_CONFIG['username']}")
     
     try:
         socketio.run(app, host=host, port=port, debug=debug, allow_unsafe_werkzeug=True)
