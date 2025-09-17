@@ -102,6 +102,109 @@ check_prerequisites() {
     print_success "Prérequis validés"
 }
 
+# Installation des packages de base nécessaires
+install_base_packages() {
+    print_step "Installation des packages système de base..."
+    
+    # Mise à jour de la liste des packages
+    apt-get update -qq || {
+        print_error "Impossible de mettre à jour la liste des packages"
+        return 1
+    }
+    
+    # Packages essentiels pour le fonctionnement de RaspPunzel
+    local base_packages=(
+        "hostapd"
+        "dnsmasq" 
+        "nginx"
+        "openssh-server"
+        "python3"
+        "python3-pip"
+        "curl"
+        "wget"
+        "systemd"
+        "iproute2"
+        "iptables"
+    )
+    
+    print_status "Installation des packages essentiels..."
+    for package in "${base_packages[@]}"; do
+        if ! dpkg -l | grep -q "^ii  $package "; then
+            print_status "Installation de $package..."
+            if apt-get install -y -qq "$package"; then
+                print_success "$package installé"
+            else
+                print_warning "Échec installation $package (non critique)"
+            fi
+        else
+            print_status "$package déjà installé"
+        fi
+    done
+    
+    # Vérification que les services critiques peuvent démarrer
+    print_status "Vérification des services..."
+    
+    # Arrêt des services pour éviter les conflits pendant la configuration
+    systemctl stop hostapd 2>/dev/null || true
+    systemctl stop dnsmasq 2>/dev/null || true
+    systemctl stop nginx 2>/dev/null || true
+    
+    print_success "Packages de base installés et services préparés"
+}
+
+# Fonction à appeler AVANT apply_configuration() dans main()
+check_and_create_directories() {
+    print_step "Vérification de la structure des répertoires..."
+    
+    # Vérification que le script est lancé depuis le bon répertoire
+    if [ ! -d "config" ]; then
+        print_error "Répertoire 'config' non trouvé. Lancez le script depuis le répertoire d'installation."
+        return 1
+    fi
+    
+    # Création de tous les répertoires nécessaires
+    local directories=(
+        "/opt/rasppunzel/web"
+        "/opt/rasppunzel/config"
+        "/opt/rasppunzel-scripts"
+        "/var/log/rasppunzel"
+        "/etc/hostapd"
+        "/etc/nginx/sites-available"
+        "/etc/nginx/sites-enabled"
+    )
+    
+    for dir in "${directories[@]}"; do
+        if ! mkdir -p "$dir"; then
+            print_error "Impossible de créer le répertoire $dir"
+            return 1
+        fi
+    done
+    
+    # Vérification des templates requis
+    local required_templates=(
+        "config/network/hostapd.conf.template"
+        "config/network/dnsmasq.conf.template"
+        "config/network/interfaces.template"
+        "config/services/nginx-rasppunzel.conf"
+    )
+    
+    local missing_templates=()
+    for template in "${required_templates[@]}"; do
+        if [ ! -f "$template" ]; then
+            missing_templates+=("$template")
+        fi
+    done
+    
+    if [ ${#missing_templates[@]} -gt 0 ]; then
+        print_warning "Templates manquants détectés:"
+        for missing in "${missing_templates[@]}"; do
+            echo "  - $missing"
+        done
+        print_warning "Installation continuera mais certaines fonctionnalités pourraient ne pas être disponibles"
+    fi
+    
+    print_success "Structure des répertoires vérifiée"
+}
 # Configuration interactive avec validation
 configure_settings() {
     print_step "Configuration interactive de RaspPunzel"
@@ -206,44 +309,83 @@ configure_settings() {
 }
 
 # Application de la configuration aux templates
+# Application de la configuration aux templates
 apply_configuration() {
     print_step "Application de la configuration..."
     
-    # Création des répertoires nécessaires
+    # Création des répertoires nécessaires pour RaspPunzel
     mkdir -p /opt/rasppunzel/web
     mkdir -p /opt/rasppunzel/config
     mkdir -p /opt/rasppunzel-scripts
     mkdir -p /var/log/rasppunzel
     
+    # Création des répertoires système nécessaires
+    mkdir -p /etc/hostapd
+    mkdir -p /etc/nginx/sites-available
+    mkdir -p /etc/nginx/sites-enabled
+    
     # Application de la configuration aux templates réseau
     if [ -f "config/network/hostapd.conf.template" ]; then
         sed "s/MAINTENANCE_WIFI/$WIFI_SSID/g; s/SecureP@ss123!/$WIFI_PASS/g" \
             config/network/hostapd.conf.template > /etc/hostapd/hostapd.conf
-        print_success "Configuration hostapd appliquée"
+        # Vérification que le fichier a été créé
+        if [ -f "/etc/hostapd/hostapd.conf" ]; then
+            print_success "Configuration hostapd appliquée"
+        else
+            print_error "Échec création fichier hostapd.conf"
+            return 1
+        fi
+    else
+        print_warning "Template hostapd.conf.template non trouvé"
     fi
     
     if [ -f "config/network/dnsmasq.conf.template" ]; then
+        # Sauvegarde de la configuration originale si elle existe
+        if [ -f "/etc/dnsmasq.conf" ]; then
+            cp /etc/dnsmasq.conf /etc/dnsmasq.conf.backup
+        fi
         sed "s/192\.168\.10\.1/$AP_IP/g" \
             config/network/dnsmasq.conf.template > /etc/dnsmasq.conf
-        print_success "Configuration dnsmasq appliquée"
+        # Vérification que le fichier a été créé
+        if [ -f "/etc/dnsmasq.conf" ]; then
+            print_success "Configuration dnsmasq appliquée"
+        else
+            print_error "Échec création fichier dnsmasq.conf"
+            return 1
+        fi
+    else
+        print_warning "Template dnsmasq.conf.template non trouvé"
     fi
     
     if [ -f "config/network/interfaces.template" ]; then
+        # Sauvegarde de la configuration originale
+        if [ -f "/etc/network/interfaces" ]; then
+            cp /etc/network/interfaces /etc/network/interfaces.backup
+        fi
         sed "s/192\.168\.10\.1/$AP_IP/g" \
             config/network/interfaces.template > /etc/network/interfaces.new
-        print_success "Configuration interfaces préparée"
+        print_success "Configuration interfaces préparée (sera appliquée plus tard)"
+    else
+        print_warning "Template interfaces.template non trouvé"
     fi
     
     # Configuration nginx
     if [ -f "config/services/nginx-rasppunzel.conf" ]; then
         sed "s/8080/$WEB_PORT/g" \
             config/services/nginx-rasppunzel.conf > /etc/nginx/sites-available/rasppunzel
-        print_success "Configuration nginx appliquée"
+        # Vérification que le fichier a été créé
+        if [ -f "/etc/nginx/sites-available/rasppunzel" ]; then
+            print_success "Configuration nginx appliquée"
+        else
+            print_error "Échec création fichier nginx"
+            return 1
+        fi
+    else
+        print_warning "Template nginx-rasppunzel.conf non trouvé"
     fi
     
     print_success "Configuration appliquée aux templates"
 }
-
 # Créer le fichier de configuration d'authentification
 create_auth_config() {
     print_step "Configuration de l'authentification..."
@@ -466,6 +608,8 @@ cleanup_and_optimize() {
     
     print_success "Nettoyage et optimisation terminés"
 }
+# Installation complète avec gestion d'erreur
+
 
 # Installation complète avec gestion d'erreur
 main() {
@@ -479,10 +623,27 @@ main() {
     print_status "Temps estimé: 10-15 minutes selon votre connexion Internet"
     echo
     
-    # Étapes d'installation
+    # Étapes d'installation dans l'ordre correct
     check_prerequisites
     configure_settings
-    apply_configuration
+    
+    # NOUVEAU: Installation des packages de base AVANT la configuration
+    install_base_packages || {
+        print_error "Installation des packages de base échouée"
+        exit 1
+    }
+    
+    # NOUVEAU: Vérification des répertoires AVANT apply_configuration
+    check_and_create_directories || {
+        print_error "Vérification des répertoires échouée" 
+        exit 1
+    }
+    
+    apply_configuration || {
+        print_error "Application de la configuration échouée"
+        exit 1
+    }
+    
     create_auth_config
     
     # Exécution des sous-scripts avec vérification
@@ -516,6 +677,8 @@ main() {
     create_status_script
     cleanup_and_optimize
     
+    # Le reste du code reste identique...
+    # [Résumé final]
     # Résumé final
     echo
     echo -e "${GREEN}╔══════════════════════════════════════════════════════════════╗${NC}"
