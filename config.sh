@@ -1,170 +1,76 @@
 #!/bin/bash
 
 # =================================================================================================
-# RaspPunzel Configuration File
-# =================================================================================================
-# Edit this file before running install.sh
+# RaspPunzel Test Configuration (Vagrant)
 # =================================================================================================
 
-# -------------------------------------------------------------------------------------------------
-# LIGOLO-NG CONFIGURATION
-# -------------------------------------------------------------------------------------------------
+# Ligolo-ng configuration
+LIGOLO_VERSION="v0.8.2"
+LIGOLO_PROXY_HOST="10.0.2.2"  # Host machine (Vagrant NAT gateway)
+LIGOLO_PROXY_PORT="11601"
+LIGOLO_IGNORE_CERT="true"
+LIGOLO_RETRY_DELAY="10"
+LIGOLO_AUTO_RESTART="true"
 
-# Ligolo-ng version (check: https://github.com/nicocha30/ligolo-ng/releases)
-LIGOLO_VERSION="v0.8"
+# Network interfaces (auto-detected)
+MAC_ETH0="08:00:27:b7:26:8d"
+MAC_WLAN0="00:00:00:00:00:00"  # Not used in VM
+WLAN_INTERFACE_ADMIN="none"    # No WiFi in VM
+WLAN_INTERFACE_ALFA_NEH="none"
+WLAN_INTERFACE_ALFA_ACH="none"
 
-# Ligolo PROXY server (YOUR attacker machine)
-# The Raspberry Pi agent will connect to this address
-LIGOLO_PROXY_HOST="192.168.1.100"     # Your attacker machine IP/hostname / can use a NAT address or ngrok tcp redirect
-LIGOLO_PROXY_PORT="11601"              # Proxy listening port
+# WiFi credentials (not used in VM)
+WIFI_SSID="NotUsed"
+WIFI_PASSPHRASE="NotUsed"
 
-# Connection options
-LIGOLO_IGNORE_CERT="true"              # Accept self-signed certificates
-LIGOLO_RETRY_DELAY="10"                # Reconnection delay in seconds
-LIGOLO_AUTO_RESTART="true"             # Auto-restart agent on failure
-
-# -------------------------------------------------------------------------------------------------
-# NETWORK INTERFACES
-# -------------------------------------------------------------------------------------------------
-# IMPORTANT: Find your MAC addresses with: ip link show
-
-# Built-in Ethernet MAC address
-MAC_ETH0="b8:27:eb:12:34:56"
-
-# Built-in WiFi MAC address
-MAC_WLAN0="b8:27:eb:ab:cd:ef"
-
-# USB WiFi adapter for Admin AP (MAC without colons)
-# Example: If MAC is 00:c0:ca:a1:b2:c3 → wlx00c0caa1b2c3
-WLAN_INTERFACE_ADMIN="wlx00c0caa1b2c3"
-
-# Additional USB WiFi adapters (optional - for attacks/monitoring)
-WLAN_INTERFACE_ALFA_NEH="wlxaabbccddeeff"
-WLAN_INTERFACE_ALFA_ACH="wlxaabbccddeeff"
-
-# -------------------------------------------------------------------------------------------------
-# INTERNET CONNECTION
-# -------------------------------------------------------------------------------------------------
-
-# WiFi credentials for Raspberry Pi to connect to internet
-WIFI_SSID="YourHomeWiFi"
-WIFI_PASSPHRASE="YourWiFiPassword"
-
-# -------------------------------------------------------------------------------------------------
-# ADMIN ACCESS POINT
-# -------------------------------------------------------------------------------------------------
-
-# Admin AP SSID
-ADMIN_AP_SSID="PIVOT_ADMIN"
-
-# Admin AP Password (min 8 characters)
-ADMIN_AP_PASSPHRASE="SecurePass123!"
-
-# Hide SSID (0=visible, 1=hidden)
+# Admin AP (disabled in VM - no WiFi adapter)
+ADMIN_AP_SSID="PIVOT_ADMIN_TEST"
+ADMIN_AP_PASSPHRASE="Test123456!"
 ADMIN_AP_HIDDEN="0"
-
-# WiFi channel (1-11)
 ADMIN_AP_CHANNEL="6"
-
-# Admin AP IP configuration
 ADMIN_AP_IP="10.0.0.1"
 ADMIN_AP_NETMASK="255.255.255.0"
 ADMIN_AP_NETWORK="10.0.0.0/24"
-
-# DHCP range for Admin AP
 ADMIN_AP_DHCP_START="10.0.0.2"
 ADMIN_AP_DHCP_END="10.0.0.30"
 ADMIN_AP_DHCP_LEASE="12h"
-
-# DNS servers for Admin AP clients
 ADMIN_AP_DNS_PRIMARY="8.8.8.8"
 ADMIN_AP_DNS_SECONDARY="8.8.4.4"
 
-# -------------------------------------------------------------------------------------------------
-# SSH CONFIGURATION
-# -------------------------------------------------------------------------------------------------
-
-# SSH port
+# SSH configuration
 SSH_PORT="22"
-
-# Allow root login (yes/no)
 SSH_ROOT_LOGIN="yes"
-
-# Allow password authentication (yes/no)
 SSH_PASSWORD_AUTH="yes"
 
-# -------------------------------------------------------------------------------------------------
-# WEB DASHBOARD
-# -------------------------------------------------------------------------------------------------
-
-# Enable web dashboard
+# Web dashboard
 ENABLE_WEB_DASHBOARD="true"
-
-# Web dashboard port
 WEB_PORT="5000"
-
-# Web dashboard credentials
 WEB_USERNAME="admin"
 WEB_PASSWORD="rasppunzel"
 
-# -------------------------------------------------------------------------------------------------
-# SYSTEM CONFIGURATION
-# -------------------------------------------------------------------------------------------------
-
-# Hostname
-HOSTNAME="rasppunzel"
-
-# Timezone (use: timedatectl list-timezones)
+# System configuration
+HOSTNAME="rasppunzel-test"
 TIMEZONE="UTC"
-
-# NTP servers
 NTP_SERVERS="pool.ntp.org"
-
-# Enable IP forwarding
 IP_FORWARDING="true"
 
-# -------------------------------------------------------------------------------------------------
-# SECURITY SETTINGS
-# -------------------------------------------------------------------------------------------------
-
-# Enable firewall (iptables)
-ENABLE_FIREWALL="true"
-
-# Enable fail2ban for SSH
+# Security settings
+ENABLE_FIREWALL="false"  # Disabled for testing
 ENABLE_FAIL2BAN="false"
-
-# Allowed SSH IPs (comma-separated or "any")
-# Example: "192.168.1.0/24,10.0.0.0/24"
 SSH_ALLOWED_IPS="any"
 
-# -------------------------------------------------------------------------------------------------
-# LOGGING
-# -------------------------------------------------------------------------------------------------
-
-# Log level (debug/info/warning/error)
+# Logging
 LOG_LEVEL="info"
-
-# Log retention (days)
 LOG_RETENTION_DAYS="7"
 
-# -------------------------------------------------------------------------------------------------
-# ADVANCED OPTIONS
-# -------------------------------------------------------------------------------------------------
-
-# Ligolo bind address (0.0.0.0 = all interfaces)
+# Advanced options
 LIGOLO_BIND_ADDR="0.0.0.0"
-
-# TCP congestion control (cubic/bbr/reno)
 TCP_CONGESTION_CONTROL="cubic"
-
-# Maximum connections
 MAX_CONNECTIONS="1000"
 
-# -------------------------------------------------------------------------------------------------
-# EXPORT ALL VARIABLES
-# -------------------------------------------------------------------------------------------------
-
-export LIGOLO_VERSION LIGOLO_PORT TUN_INTERFACE TUN_IP
+# Export all variables
+export LIGOLO_VERSION LIGOLO_PROXY_HOST LIGOLO_PROXY_PORT
+export LIGOLO_IGNORE_CERT LIGOLO_RETRY_DELAY LIGOLO_AUTO_RESTART
 export MAC_ETH0 MAC_WLAN0
 export WLAN_INTERFACE_ADMIN WLAN_INTERFACE_ALFA_NEH WLAN_INTERFACE_ALFA_ACH
 export WIFI_SSID WIFI_PASSPHRASE
