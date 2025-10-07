@@ -699,4 +699,4 @@ if __name__ == '__main__':
     parser.add_argument('--debug', action='store_true', help='Mode debug')
     
     args = parser.parse_args()
-    run_server(args.host, args.port, args.debug)
+    run_server(args.host, args.port, args.debug,debug=False, allow_unsafe_werkzeug=True)
