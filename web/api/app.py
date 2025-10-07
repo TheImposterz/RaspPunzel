@@ -14,33 +14,32 @@ import threading
 import time
 import hashlib
 from datetime import datetime, timedelta
-from flask import Flask, request, jsonify, render_template, Response, session, redirect, url_for
+from flask import Flask, request, jsonify, render_template, session, redirect, url_for
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit
 import psutil
 import signal
-from werkzeug.serving import make_server
 from functools import wraps
 
 app = Flask(__name__, template_folder='../')
 app.config['SECRET_KEY'] = 'rasppunzel-secret-key-2025'
-app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=8)  # Session expiration
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=8)
 CORS(app)
-#socketio = SocketIO(app, cors_allowed_origins="*")
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
+
 # Configuration d'authentification
 AUTH_CONFIG = {
-    'username': 'admin',  # Par défaut, sera lu depuis config
-    'password_hash': '',  # Hash du mot de passe
+    'username': 'admin',
+    'password_hash': '',
     'session_timeout': 480  # 8 heures en minutes
 }
 
 # Variables globales pour le suivi des processus
-running_processes = {}
 system_status = {
-    'wifi_ap': False,
-    'services': False,
-    'guacamole': False
+    'ligolo_agent': False,
+    'hostapd': False,
+    'dnsmasq': False,
+    'services': False
 }
 
 def load_auth_config():
@@ -54,12 +53,22 @@ def load_auth_config():
                 AUTH_CONFIG['password_hash'] = config.get('password_hash', '')
         else:
             # Valeurs par défaut si pas de fichier de config
-            default_password = 'RedTeam2025!'
+            default_password = 'rasppunzel'
             AUTH_CONFIG['password_hash'] = hashlib.sha256(default_password.encode()).hexdigest()
+            
+            # Créer le dossier et le fichier de config
+            os.makedirs(os.path.dirname(config_file), exist_ok=True)
+            with open(config_file, 'w') as f:
+                json.dump({
+                    'username': AUTH_CONFIG['username'],
+                    'password_hash': AUTH_CONFIG['password_hash']
+                }, f, indent=2)
+            os.chmod(config_file, 0o600)
+            
     except Exception as e:
         print(f"[!] Erreur chargement config auth: {e}")
         # Fallback sur mot de passe par défaut
-        default_password = 'RedTeam2025!'
+        default_password = 'rasppunzel'
         AUTH_CONFIG['password_hash'] = hashlib.sha256(default_password.encode()).hexdigest()
 
 def hash_password(password):
@@ -76,7 +85,7 @@ def login_required(f):
     def decorated_function(*args, **kwargs):
         if 'authenticated' not in session or not session['authenticated']:
             if request.is_json:
-                return jsonify({'error': 'Authentication required', 'redirect': '/login'}), 401
+                return jsonify({'success': False, 'error': 'Authentication required', 'redirect': '/'}), 401
             return redirect(url_for('login'))
         
         # Vérifier l'expiration de session
@@ -85,18 +94,26 @@ def login_required(f):
             if datetime.now() - login_time > timedelta(minutes=AUTH_CONFIG['session_timeout']):
                 session.clear()
                 if request.is_json:
-                    return jsonify({'error': 'Session expired', 'redirect': '/login'}), 401
+                    return jsonify({'success': False, 'error': 'Session expired', 'redirect': '/'}), 401
                 return redirect(url_for('login'))
         
         return f(*args, **kwargs)
     return decorated_function
 
-@app.route('/login', methods=['GET', 'POST'])
+@app.route('/')
+def index():
+    """Page de connexion (index)"""
+    if 'authenticated' in session and session['authenticated']:
+        return redirect(url_for('dashboard'))
+    return render_template('index.html')
+
+@app.route('/login', methods=['POST'])
 def login():
-    """Page de connexion"""
-    if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
+    """Endpoint de connexion (POST uniquement)"""
+    try:
+        data = request.get_json() or request.form
+        username = data.get('username')
+        password = data.get('password')
         
         if (username == AUTH_CONFIG['username'] and 
             verify_password(password, AUTH_CONFIG['password_hash'])):
@@ -106,17 +123,35 @@ def login():
             session['login_time'] = datetime.now().isoformat()
             session.permanent = True
             
-            return redirect(url_for('dashboard'))
+            return jsonify({
+                'success': True,
+                'message': 'Connexion réussie',
+                'redirect': '/dashboard'
+            })
         else:
-            return render_template('login.html', error='Identifiants incorrects')
-    
-    return render_template('login.html')
+            return jsonify({
+                'success': False,
+                'message': 'Identifiants incorrects'
+            }), 401
+            
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
 @app.route('/logout')
 def logout():
     """Déconnexion"""
     session.clear()
-    return redirect(url_for('login'))
+    return redirect(url_for('index'))
+
+@app.route('/dashboard')
+@login_required
+def dashboard():
+    """Page principale du dashboard"""
+    return render_template('dashboard.html')
+
 
 class ProcessManager:
     """Gestionnaire des processus et outils"""
@@ -215,11 +250,6 @@ class ProcessManager:
 # Instance du gestionnaire de processus
 process_manager = ProcessManager()
 
-@app.route('/')
-@login_required
-def dashboard():
-    """Page principale du dashboard"""
-    return render_template('dashboard.html')
 
 @app.route('/api/status')
 @login_required
@@ -235,8 +265,15 @@ def get_status():
             'memory_percent': psutil.virtual_memory().percent,
             'disk_percent': psutil.disk_usage('/').percent,
             'uptime': get_uptime(),
+            'hostname': os.uname().nodename,
             'network_interfaces': get_network_interfaces()
         }
+        
+        # Configuration Ligolo
+        ligolo_config = get_ligolo_config()
+        
+        # Routes système
+        routes = get_system_routes()
         
         # Processus en cours
         running_tools = {
@@ -253,6 +290,8 @@ def get_status():
             'success': True,
             'services': services_status,
             'system': system_info,
+            'ligolo': ligolo_config,
+            'routes': routes,
             'running_tools': running_tools,
             'timestamp': datetime.now().isoformat()
         })
@@ -263,127 +302,42 @@ def get_status():
             'error': str(e)
         }), 500
 
-@app.route('/api/tools/<tool_name>/start', methods=['POST'])
+
+@app.route('/api/routes')
 @login_required
-def start_tool(tool_name):
-    """Démarre un outil spécifique"""
+def get_routes():
+    """Retourne les routes système (ip route)"""
     try:
-        data = request.get_json() or {}
-        args = data.get('args', '')
+        routes = get_system_routes()
+        return jsonify({
+            'success': True,
+            'routes': routes
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/api/routes/discover', methods=['POST'])
+@login_required
+def discover_routes():
+    """Découvre les routes réseau disponibles"""
+    try:
+        routes = get_system_routes()
         
-        # Configuration des outils
-        tool_configs = {
-            'nmap': {
-                'command': f'/usr/bin/nmap {args} 2>&1',
-                'description': 'Scan réseau avec Nmap'
-            },
-            'masscan': {
-                'command': f'/usr/bin/masscan {args} 2>&1',
-                'description': 'Scan rapide avec Masscan'
-            },
-            'kismet': {
-                'command': '/usr/bin/kismet -c wlan1mon --no-ncurses 2>&1',
-                'description': 'Monitoring WiFi avec Kismet'
-            },
-            'airodump': {
-                'command': f'/usr/bin/airodump-ng {args} wlan1mon 2>&1',
-                'description': 'Capture WiFi avec Airodump'
-            },
-            'wifite': {
-                'command': f'/usr/bin/wifite {args} 2>&1',
-                'description': 'Attaque WiFi automatisée'
-            },
-            'aircrack': {
-                'command': f'/usr/bin/aircrack-ng {args} 2>&1',
-                'description': 'Crack WPA avec Aircrack'
-            },
-            'reaver': {
-                'command': f'/usr/bin/reaver {args} 2>&1',
-                'description': 'Attaque WPS avec Reaver'
-            },
-            'bully': {
-                'command': f'/usr/bin/bully {args} 2>&1',
-                'description': 'Attaque WPS avec Bully'
-            },
-            'nikto': {
-                'command': f'/usr/bin/nikto {args} 2>&1',
-                'description': 'Scan de vulnérabilités web'
-            },
-            'gobuster': {
-                'command': f'/usr/bin/gobuster {args} 2>&1',
-                'description': 'Brute force de répertoires'
-            },
-            'sqlmap': {
-                'command': f'/usr/bin/sqlmap {args} 2>&1',
-                'description': 'Test d\'injection SQL'
-            },
-            'hydra': {
-                'command': f'/usr/bin/hydra {args} 2>&1',
-                'description': 'Brute force avec Hydra'
-            },
-            'john': {
-                'command': f'/usr/bin/john {args} 2>&1',
-                'description': 'Crack de hash avec John'
-            },
-            'hashcat': {
-                'command': f'/usr/bin/hashcat {args} 2>&1',
-                'description': 'Crack GPU avec Hashcat'
-            },
-            'medusa': {
-                'command': f'/usr/bin/medusa {args} 2>&1',
-                'description': 'Brute force multi-protocole'
-            },
-            'msfconsole': {
-                'command': '/usr/bin/msfconsole -q 2>&1',
-                'description': 'Console Metasploit'
-            },
-            'beef': {
-                'command': 'cd /usr/share/beef-xss && ./beef 2>&1',
-                'description': 'Framework BeEF'
-            },
-            'wireshark': {
-                'command': '/usr/bin/wireshark 2>&1',
-                'description': 'Analyseur de paquets'
-            },
-            'ettercap': {
-                'command': f'/usr/bin/ettercap {args} 2>&1',
-                'description': 'Attaque Man-in-the-Middle'
-            },
-            'bettercap': {
-                'command': f'/usr/bin/bettercap {args} 2>&1',
-                'description': 'Framework d\'attaque réseau'
-            },
-            'tcpdump': {
-                'command': f'/usr/bin/tcpdump {args} 2>&1',
-                'description': 'Capture de paquets'
-            }
-        }
-        
-        if tool_name not in tool_configs:
-            return jsonify({
-                'success': False,
-                'error': f'Outil {tool_name} non supporté'
-            }), 400
-        
-        config = tool_configs[tool_name]
-        success, message = process_manager.start_process(
-            tool_name, 
-            config['command'],
-            cwd=config.get('cwd')
-        )
-        
-        if success:
-            socketio.emit('tool_started', {
-                'tool': tool_name,
-                'description': config['description'],
-                'timestamp': datetime.now().isoformat()
-            })
+        # Émettre via WebSocket
+        socketio.emit('routes_discovered', {
+            'routes': routes,
+            'count': len(routes),
+            'timestamp': datetime.now().isoformat()
+        })
         
         return jsonify({
-            'success': success,
-            'message': message,
-            'tool': tool_name,
-            'description': config['description']
+            'success': True,
+            'routes': routes,
+            'message': f'{len(routes)} routes découvertes'
         })
         
     except Exception as e:
@@ -392,23 +346,28 @@ def start_tool(tool_name):
             'error': str(e)
         }), 500
 
-@app.route('/api/tools/<tool_name>/stop', methods=['POST'])
+
+@app.route('/api/ligolo/restart', methods=['POST'])
 @login_required
-def stop_tool(tool_name):
-    """Arrête un outil spécifique"""
+def restart_ligolo():
+    """Redémarre l'agent Ligolo-ng"""
     try:
-        success, message = process_manager.kill_process(tool_name)
+        result = subprocess.run(
+            ['systemctl', 'restart', 'ligolo-agent'],
+            capture_output=True, text=True, timeout=15
+        )
         
-        if success:
-            socketio.emit('tool_stopped', {
-                'tool': tool_name,
-                'timestamp': datetime.now().isoformat()
-            })
+        success = result.returncode == 0
+        
+        socketio.emit('service_restarted', {
+            'service': 'ligolo-agent',
+            'success': success,
+            'timestamp': datetime.now().isoformat()
+        })
         
         return jsonify({
             'success': success,
-            'message': message,
-            'tool': tool_name
+            'message': 'Agent redémarré' if success else result.stderr
         })
         
     except Exception as e:
@@ -416,19 +375,39 @@ def stop_tool(tool_name):
             'success': False,
             'error': str(e)
         }), 500
+
+
+@app.route('/api/ligolo/configure', methods=['POST'])
+@login_required
+def configure_ligolo():
+    """Reconfigurer l'agent Ligolo (lance le wizard)"""
+    try:
+        return jsonify({
+            'success': True,
+            'message': 'Exécutez: sudo configure-ligolo.sh sur le terminal',
+            'command': 'sudo configure-ligolo.sh'
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 
 @app.route('/api/services/start', methods=['POST'])
 @login_required
 def start_services():
     """Démarre les services système"""
     try:
-        services = ['hostapd', 'dnsmasq', 'ssh']
+        services = ['ligolo-agent', 'hostapd', 'dnsmasq']
         results = []
         
         for service in services:
             try:
-                result = subprocess.run(['systemctl', 'start', service], 
-                                      capture_output=True, text=True, timeout=10)
+                result = subprocess.run(
+                    ['systemctl', 'start', service],
+                    capture_output=True, text=True, timeout=10
+                )
                 results.append({
                     'service': service,
                     'success': result.returncode == 0,
@@ -442,7 +421,6 @@ def start_services():
                 })
         
         success = all(r['success'] for r in results)
-        system_status['services'] = success
         
         socketio.emit('services_status_changed', {
             'services': success,
@@ -461,18 +439,21 @@ def start_services():
             'error': str(e)
         }), 500
 
+
 @app.route('/api/services/stop', methods=['POST'])
 @login_required
 def stop_services():
     """Arrête les services système"""
     try:
-        services = ['hostapd', 'dnsmasq']
+        services = ['ligolo-agent', 'hostapd', 'dnsmasq']
         results = []
         
         for service in services:
             try:
-                result = subprocess.run(['systemctl', 'stop', service], 
-                                      capture_output=True, text=True, timeout=10)
+                result = subprocess.run(
+                    ['systemctl', 'stop', service],
+                    capture_output=True, text=True, timeout=10
+                )
                 results.append({
                     'service': service,
                     'success': result.returncode == 0,
@@ -486,7 +467,6 @@ def stop_services():
                 })
         
         success = all(r['success'] for r in results)
-        system_status['services'] = not success
         
         socketio.emit('services_status_changed', {
             'services': not success,
@@ -505,18 +485,21 @@ def stop_services():
             'error': str(e)
         }), 500
 
+
 @app.route('/api/services/restart', methods=['POST'])
 @login_required
 def restart_services():
     """Redémarre les services système"""
     try:
-        services = ['hostapd', 'dnsmasq']
+        services = ['ligolo-agent', 'hostapd', 'dnsmasq']
         results = []
         
         for service in services:
             try:
-                result = subprocess.run(['systemctl', 'restart', service], 
-                                      capture_output=True, text=True, timeout=15)
+                result = subprocess.run(
+                    ['systemctl', 'restart', service],
+                    capture_output=True, text=True, timeout=15
+                )
                 results.append({
                     'service': service,
                     'success': result.returncode == 0,
@@ -530,7 +513,6 @@ def restart_services():
                 })
         
         success = all(r['success'] for r in results)
-        system_status['services'] = success
         
         socketio.emit('services_status_changed', {
             'services': success,
@@ -549,27 +531,6 @@ def restart_services():
             'error': str(e)
         }), 500
 
-@app.route('/api/system/update', methods=['POST'])
-@login_required
-def update_system():
-    """Met à jour le système"""
-    try:
-        # Lancer le script de mise à jour en arrière-plan
-        success, message = process_manager.start_process(
-            'system_update',
-            '/usr/local/bin/update-system.sh'
-        )
-        
-        return jsonify({
-            'success': success,
-            'message': message
-        })
-        
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
 
 @app.route('/api/logs')
 @login_required
@@ -579,7 +540,7 @@ def get_logs():
         logs = []
         
         # Logs des services principaux
-        services = ['hostapd', 'dnsmasq', 'ssh']
+        services = ['ligolo-agent', 'hostapd', 'dnsmasq', 'rasppunzel-web']
         
         for service in services:
             try:
@@ -607,9 +568,71 @@ def get_logs():
             'error': str(e)
         }), 500
 
+
+@app.route('/api/network/info')
+@login_required
+def get_network_info():
+    """Retourne les informations réseau détaillées"""
+    try:
+        interfaces = {}
+        
+        for interface, addrs in psutil.net_if_addrs().items():
+            iface_info = {'addresses': []}
+            for addr in addrs:
+                if addr.family == 2:  # AF_INET (IPv4)
+                    iface_info['addresses'].append({
+                        'type': 'ipv4',
+                        'ip': addr.address,
+                        'netmask': addr.netmask
+                    })
+            
+            # Statut de l'interface
+            stats = psutil.net_if_stats().get(interface)
+            if stats:
+                iface_info['status'] = 'up' if stats.isup else 'down'
+                iface_info['speed'] = stats.speed
+            
+            interfaces[interface] = iface_info
+        
+        return jsonify({
+            'success': True,
+            'interfaces': interfaces
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/api/config/export')
+@login_required
+def export_config():
+    """Exporte la configuration système"""
+    try:
+        config = {
+            'ligolo': get_ligolo_config(),
+            'network': get_network_interfaces(),
+            'services': check_services_status(),
+            'export_date': datetime.now().isoformat()
+        }
+        
+        return jsonify({
+            'success': True,
+            'config': config
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
 def check_services_status():
     """Vérifie le statut des services"""
-    services = ['hostapd', 'dnsmasq', 'ssh', 'guacd', 'tomcat9', 'mysql']
+    services = ['ligolo-agent', 'hostapd', 'dnsmasq', 'ssh', 'rasppunzel-web']
     status = {}
     
     for service in services:
@@ -624,19 +647,24 @@ def check_services_status():
     
     return status
 
+
 def get_uptime():
     """Retourne l'uptime du système"""
     try:
         with open('/proc/uptime', 'r') as f:
             uptime_seconds = float(f.readline().split()[0])
         
-        hours = int(uptime_seconds // 3600)
+        days = int(uptime_seconds // 86400)
+        hours = int((uptime_seconds % 86400) // 3600)
         minutes = int((uptime_seconds % 3600) // 60)
-        seconds = int(uptime_seconds % 60)
         
-        return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+        if days > 0:
+            return f"{days}d {hours:02d}h{minutes:02d}m"
+        else:
+            return f"{hours:02d}h{minutes:02d}m"
     except:
-        return "00:00:00"
+        return "unknown"
+
 
 def get_network_interfaces():
     """Retourne les informations des interfaces réseau"""
@@ -655,6 +683,87 @@ def get_network_interfaces():
     
     return interfaces
 
+
+def get_system_routes():
+    """Récupère les routes système via ip route"""
+    routes = []
+    try:
+        result = subprocess.run(
+            ['ip', 'route', 'show'],
+            capture_output=True, text=True, timeout=5
+        )
+        
+        if result.returncode == 0:
+            for line in result.stdout.split('\n'):
+                if line.strip():
+                    parts = line.split()
+                    route = {
+                        'destination': parts[0] if parts else '',
+                        'gateway': None,
+                        'interface': None,
+                        'metric': None,
+                        'raw': line
+                    }
+                    
+                    # Parser la route
+                    for i, part in enumerate(parts):
+                        if part == 'via' and i + 1 < len(parts):
+                            route['gateway'] = parts[i + 1]
+                        elif part == 'dev' and i + 1 < len(parts):
+                            route['interface'] = parts[i + 1]
+                        elif part == 'metric' and i + 1 < len(parts):
+                            route['metric'] = parts[i + 1]
+                    
+                    routes.append(route)
+    except Exception as e:
+        print(f"[!] Erreur lors de la récupération des routes: {e}")
+    
+    return routes
+
+
+def get_ligolo_config():
+    """Récupère la configuration Ligolo-ng"""
+    config = {
+        'configured': False,
+        'proxy_host': None,
+        'proxy_port': 443,
+        'version': None
+    }
+    
+    try:
+        # Lire la config depuis /etc/rasppunzel/ligolo.conf
+        config_file = '/etc/rasppunzel/ligolo.conf'
+        if os.path.exists(config_file):
+            with open(config_file, 'r') as f:
+                for line in f:
+                    line = line.strip()
+                    if line.startswith('LIGOLO_PROXY_HOST='):
+                        host = line.split('=', 1)[1].strip('"\'')
+                        if host:
+                            config['proxy_host'] = host
+                            config['configured'] = True
+                    elif line.startswith('LIGOLO_PROXY_PORT='):
+                        config['proxy_port'] = int(line.split('=', 1)[1].strip('"\''))
+                    elif line.startswith('LIGOLO_VERSION='):
+                        config['version'] = line.split('=', 1)[1].strip('"\'')
+        
+        # Vérifier si l'agent est installé
+        try:
+            result = subprocess.run(
+                ['/usr/local/bin/ligolo-agent', '--version'],
+                capture_output=True, text=True, timeout=2
+            )
+            if result.returncode == 0:
+                config['installed'] = True
+        except:
+            config['installed'] = False
+            
+    except Exception as e:
+        print(f"[!] Erreur lecture config Ligolo: {e}")
+    
+    return config
+
+
 @socketio.on('connect')
 def handle_connect():
     """Gestion des connexions WebSocket"""
@@ -667,10 +776,12 @@ def handle_connect():
         'timestamp': datetime.now().isoformat()
     })
 
+
 @socketio.on('disconnect')
 def handle_disconnect():
     """Gestion des déconnexions WebSocket"""
     pass
+
 
 def run_server(host='0.0.0.0', port=5000, debug=False):
     """Lance le serveur Flask"""
@@ -680,6 +791,7 @@ def run_server(host='0.0.0.0', port=5000, debug=False):
     print(f"[+] Démarrage du serveur RaspPunzel Dashboard sur {host}:{port}")
     print(f"[+] Interface web accessible sur http://{host}:{port}")
     print(f"[+] Utilisateur: {AUTH_CONFIG['username']}")
+    print(f"[+] Mot de passe par défaut: rasppunzel (à changer après première connexion)")
     
     try:
         socketio.run(app, host=host, port=port, debug=debug, allow_unsafe_werkzeug=True)
@@ -690,6 +802,7 @@ def run_server(host='0.0.0.0', port=5000, debug=False):
             process_manager.kill_process(tool_name)
         sys.exit(0)
 
+
 if __name__ == '__main__':
     import argparse
     
@@ -699,4 +812,4 @@ if __name__ == '__main__':
     parser.add_argument('--debug', action='store_true', help='Mode debug')
     
     args = parser.parse_args()
-    run_server(args.host, args.port, args.debug,debug=False, allow_unsafe_werkzeug=True)
+    run_server(args.host, args.port, args.debug)
