@@ -50,7 +50,7 @@
             border-radius: 15px;
             padding: 40px;
             backdrop-filter: blur(15px);
-            max-width: 400px;
+            max-width: 450px;
             width: 90%;
             position: relative;
             overflow: hidden;
@@ -92,6 +92,13 @@
         .login-header p {
             opacity: 0.8;
             font-size: 1rem;
+            margin-bottom: 5px;
+        }
+
+        .login-header .subtitle {
+            opacity: 0.6;
+            font-size: 0.85rem;
+            color: #ffaa00;
         }
 
         .login-form {
@@ -241,16 +248,15 @@
     <div class="login-container">
         <div class="login-header">
             <h1>🚀 RaspPunzel</h1>
-            <p>Interface d'Administration Sécurisée</p>
+            <p>Interface d'Administration</p>
+            <p class="subtitle">Ligolo-ng Agent Control Panel</p>
         </div>
 
-        {% if error %}
-        <div class="error-message">
-            {{ error }}
+        <div class="error-message" id="error-message" style="display: none;">
+            Nom d'utilisateur ou mot de passe incorrect
         </div>
-        {% endif %}
 
-        <form class="login-form" method="POST" id="loginForm">
+        <form class="login-form" id="loginForm">
             <div class="form-group">
                 <label for="username">Nom d'utilisateur</label>
                 <input type="text" id="username" name="username" placeholder="Entrez votre nom d'utilisateur" required autofocus>
@@ -271,29 +277,71 @@
         </form>
 
         <div class="security-notice">
-            <strong>ACCÈS RESTREINT</strong><br>
+            <strong>⚠️ ACCÈS RESTREINT</strong><br>
             Cette interface est réservée aux administrateurs autorisés.<br>
             Toutes les connexions sont enregistrées et surveillées.
         </div>
     </div>
 
     <script>
-        document.getElementById('loginForm').addEventListener('submit', function(e) {
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
             const button = this.querySelector('.login-button');
             const loading = document.getElementById('loading');
+            const errorMessage = document.getElementById('error-message');
             
+            // Hide error message
+            errorMessage.style.display = 'none';
+            
+            // Show loading
             button.style.display = 'none';
             loading.style.display = 'block';
-        });
-
-        // Gestion des raccourcis clavier
-        document.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter') {
-                document.getElementById('loginForm').submit();
+            
+            // Get form data
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            
+            try {
+                const response = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ username, password })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Login successful, redirect to dashboard
+                    window.location.href = '/dashboard.html';
+                } else {
+                    // Login failed
+                    errorMessage.textContent = data.message || 'Nom d\'utilisateur ou mot de passe incorrect';
+                    errorMessage.style.display = 'block';
+                    button.style.display = 'block';
+                    loading.style.display = 'none';
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                errorMessage.textContent = 'Erreur de connexion au serveur';
+                errorMessage.style.display = 'block';
+                button.style.display = 'block';
+                loading.style.display = 'none';
             }
         });
 
-        // Focus automatique sur le champ username au chargement
+        // Keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                document.getElementById('username').value = '';
+                document.getElementById('password').value = '';
+                document.getElementById('error-message').style.display = 'none';
+            }
+        });
+
+        // Focus on username field
         window.addEventListener('load', function() {
             document.getElementById('username').focus();
         });

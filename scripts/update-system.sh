@@ -1,10 +1,8 @@
 #!/bin/bash
 
-# =============================================================================
-# RaspPunzel - Script de Mise à Jour du Système et des Outils
-# =============================================================================
-
-set -e
+# =================================================================================================
+# RaspPunzel - System Update Script
+# =================================================================================================
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -12,447 +10,152 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
-print_status() { echo -e "${BLUE}[INFO]${NC} $1"; }
-print_success() { echo -e "${GREEN}[SUCCESS]${NC} $1"; }
-print_error() { echo -e "${RED}[ERROR]${NC} $1"; }
-print_warning() { echo -e "${YELLOW}[WARNING]${NC} $1"; }
+if [[ $EUID -ne 0 ]]; then
+   echo -e "${RED}[!] This script must be run as root${NC}" 
+   exit 1
+fi
 
-TOOLS_DIR="/opt/rasppunzel-tools"
-BACKUP_DIR="/opt/backups/$(date +%Y%m%d_%H%M%S)"
+echo -e "${BLUE}════════════════════════════════════════════════════════════════${NC}"
+echo -e "${BLUE}  RaspPunzel System Update${NC}"
+echo -e "${BLUE}════════════════════════════════════════════════════════════════${NC}"
+echo ""
 
-# Vérification des privilèges
-check_root() {
-    if [[ $EUID -ne 0 ]]; then
-        print_error "Ce script doit être exécuté en tant que root"
-        exit 1
-    fi
-}
-
-# Banner
-show_banner() {
-    clear
-    echo -e "${BLUE}"
-    echo "╔═══════════════════════════════════════╗"
-    echo "║      RaspPunzel Update Manager        ║"
-    echo "║    Mise à Jour Système et Outils      ║"
-    echo "╚═══════════════════════════════════════╝"
-    echo -e "${NC}"
-}
-
-# Sauvegarde des configurations
-backup_configs() {
-    print_status "Sauvegarde des configurations..."
-    
-    mkdir -p "$BACKUP_DIR"
-    
-    # Sauvegarde des fichiers de configuration critiques
-    cp -r /etc/hostapd "$BACKUP_DIR/" 2>/dev/null || true
-    cp -r /etc/dnsmasq.conf "$BACKUP_DIR/" 2>/dev/null || true
-    cp -r /etc/nginx "$BACKUP_DIR/" 2>/dev/null || true
-    cp -r /etc/network "$BACKUP_DIR/" 2>/dev/null || true
-    cp -r /etc/wpa_supplicant "$BACKUP_DIR/" 2>/dev/null || true
-    cp -r /opt/rasppunzel-scripts "$BACKUP_DIR/" 2>/dev/null || true
-    
-    print_success "Configurations sauvegardées dans $BACKUP_DIR"
-}
-
-# Mise à jour du système de base
-update_base_system() {
-    print_status "Mise à jour du système de base..."
-    
-    # Ajouter les repos Kali si nécessaire
-    if ! grep -q "kali-rolling" /etc/apt/sources.list; then
-        echo "deb http://http.kali.org/kali kali-rolling main non-free contrib" >> /etc/apt/sources.list
-        print_status "Repository Kali ajouté"
-    fi
-    
-    # Mise à jour des paquets
-    apt-get update -qq
-    
-    # Mise à jour avec gestion des conflits
-    DEBIAN_FRONTEND=noninteractive apt-get -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" upgrade
-    DEBIAN_FRONTEND=noninteractive apt-get -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" dist-upgrade
-    
-    # Nettoyage
-    apt-get autoremove -y -qq
+# Update system packages
+update_system() {
+    echo -e "${YELLOW}[~] Updating system packages...${NC}"
+    apt-get update
+    apt-get upgrade -y
+    apt-get autoremove -y
     apt-get autoclean
-    
-    print_success "Système de base mis à jour"
+    echo -e "${GREEN}[+] System packages updated${NC}"
 }
 
-# Mise à jour des outils Git
-update_git_tools() {
-    print_status "Mise à jour des outils Git..."
+# Update Ligolo-ng
+update_ligolo() {
+    echo -e "${YELLOW}[~] Checking for Ligolo-ng updates...${NC}"
     
-    if [ ! -d "$TOOLS_DIR" ]; then
-        print_warning "Répertoire $TOOLS_DIR non trouvé"
-        return
-    fi
-    
-    cd "$TOOLS_DIR"
-    
-    # Liste des outils Git à mettre à jour
-    local git_tools=(
-        "wifipumpkin3"
-        "wifiphisher" 
-        "fluxion"
-        "eaphammer"
-        "airgeddon"
-        "Empire"
-        "social-engineer-toolkit"
-        "theHarvester"
-        "Sublist3r"
-        "recon-ng"
-        "XSStrike"
-    )
-    
-    for tool in "${git_tools[@]}"; do
-        if [ -d "$tool" ]; then
-            print_status "Mise à jour de $tool..."
-            cd "$tool"
-            
-            # Sauvegarder les changements locaux si nécessaire
-            git stash save "Auto-stash avant mise à jour $(date)" 2>/dev/null || true
-            
-            # Mise à jour
-            if git pull origin main 2>/dev/null || git pull origin master 2>/dev/null; then
-                print_success "$tool mis à jour"
-            else
-                print_warning "Échec de la mise à jour de $tool"
-            fi
-            
-            cd "$TOOLS_DIR"
-        else
-            print_warning "$tool non trouvé"
-        fi
-    done
-}
-
-# Mise à jour des outils Python
-update_python_tools() {
-    print_status "Mise à jour des outils Python..."
-    
-    # Mise à jour de pip
-    pip3 install --upgrade pip
-    
-    # Outils Python à mettre à jour
-    local python_tools=(
-        "scapy"
-        "requests"
-        "beautifulsoup4"
-        "selenium" 
-        "paramiko"
-        "pycryptodome"
-        "netaddr"
-        "dnspython"
-        "python-nmap"
-        "impacket"
-        "crackmapexec"
-        "ldap3"
-        "flask"
-        "socketio"
-    )
-    
-    for tool in "${python_tools[@]}"; do
-        print_status "Mise à jour de $tool..."
-        pip3 install --upgrade --break-system-packages "$tool" 2>/dev/null || \
-        pip3 install --upgrade "$tool" 2>/dev/null || \
-        print_warning "Échec mise à jour $tool"
-    done
-    
-    print_success "Outils Python mis à jour"
-}
-
-# Mise à jour de Metasploit
-update_metasploit() {
-    print_status "Mise à jour de Metasploit..."
-    
-    if command -v msfupdate &> /dev/null; then
-        msfupdate
-        print_success "Metasploit mis à jour"
+    # Get current version
+    if [[ -f /opt/ligolo-ng/VERSION ]]; then
+        CURRENT_VERSION=$(cat /opt/ligolo-ng/VERSION)
+        echo "  Current version: ${CURRENT_VERSION}"
     else
-        print_warning "msfupdate non trouvé"
+        CURRENT_VERSION="unknown"
+        echo "  Current version: Unknown"
     fi
+    
+    # Get latest version
+    LATEST_VERSION=$(curl -s https://api.github.com/repos/nicocha30/ligolo-ng/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+    
+    if [[ -z "$LATEST_VERSION" ]]; then
+        echo -e "${RED}[!] Could not fetch latest version${NC}"
+        return 1
+    fi
+    
+    echo "  Latest version: ${LATEST_VERSION}"
+    
+    if [[ "$CURRENT_VERSION" == "$LATEST_VERSION" ]]; then
+        echo -e "${GREEN}[+] Ligolo-ng is already up to date!${NC}"
+        return 0
+    fi
+    
+    echo -e "${YELLOW}[~] Updating from ${CURRENT_VERSION} to ${LATEST_VERSION}...${NC}"
+    
+    # Detect architecture
+    ARCH=$(uname -m)
+    case "$ARCH" in
+        aarch64|arm64) LIGOLO_ARCH="arm64" ;;
+        armv7l) LIGOLO_ARCH="armv7" ;;
+        x86_64) LIGOLO_ARCH="amd64" ;;
+        *) echo -e "${RED}Unsupported architecture${NC}"; return 1 ;;
+    esac
+    
+    # Stop service
+    systemctl stop ligolo-proxy
+    
+    # Backup current version
+    cp /opt/ligolo-ng/proxy /opt/ligolo-ng/proxy.backup
+    
+    # Download new version
+    cd /tmp
+    wget -q "https://github.com/nicocha30/ligolo-ng/releases/download/${LATEST_VERSION}/ligolo-ng_proxy_${LATEST_VERSION}_linux_${LIGOLO_ARCH}.tar.gz"
+    
+    if [[ $? -ne 0 ]]; then
+        echo -e "${RED}[!] Download failed${NC}"
+        systemctl start ligolo-proxy
+        return 1
+    fi
+    
+    # Extract and install
+    tar -xzf "ligolo-ng_proxy_${LATEST_VERSION}_linux_${LIGOLO_ARCH}.tar.gz"
+    mv proxy /opt/ligolo-ng/
+    chmod +x /opt/ligolo-ng/proxy
+    
+    # Save version
+    echo "${LATEST_VERSION}" > /opt/ligolo-ng/VERSION
+    
+    # Cleanup
+    rm -f /tmp/ligolo-ng_*.tar.gz
+    
+    # Restart service
+    systemctl start ligolo-proxy
+    
+    echo -e "${GREEN}[+] Ligolo-ng updated to ${LATEST_VERSION}${NC}"
+    echo "  Backup saved: /opt/ligolo-ng/proxy.backup"
 }
 
-# Mise à jour des wordlists
-update_wordlists() {
-    print_status "Mise à jour des wordlists..."
+# Menu
+if [[ $# -eq 0 ]]; then
+    echo "Select update option:"
+    echo "  1) Update system packages"
+    echo "  2) Update Ligolo-ng"
+    echo "  3) Update both"
+    echo "  4) Exit"
+    echo ""
+    read -p "Choice [1-4]: " choice
     
-    # SecLists
-    if [ ! -d "/usr/share/seclists" ]; then
-        print_status "Installation de SecLists..."
-        cd /usr/share
-        git clone https://github.com/danielmiessler/SecLists.git seclists
-    else
-        print_status "Mise à jour de SecLists..."
-        cd /usr/share/seclists
-        git pull
-    fi
-    
-    # Rockyou si pas présent
-    if [ ! -f "/usr/share/wordlists/rockyou.txt" ]; then
-        print_status "Installation de rockyou.txt..."
-        cd /usr/share/wordlists
-        if [ -f "rockyou.txt.gz" ]; then
-            gunzip rockyou.txt.gz
-        else
-            wget -q https://github.com/brannondorsey/naive-hashcat/releases/download/data/rockyou.txt
-        fi
-    fi
-    
-    print_success "Wordlists mis à jour"
-}
-
-# Mise à jour des signatures et bases de données
-update_signatures() {
-    print_status "Mise à jour des signatures et bases de données..."
-    
-    # Nmap scripts
-    if command -v nmap &> /dev/null; then
-        nmap --script-updatedb 2>/dev/null || print_warning "Échec mise à jour scripts Nmap"
-    fi
-    
-    # John the Ripper
-    if [ -d "/usr/share/john" ]; then
-        cd /usr/share/john
-        wget -q -N https://raw.githubusercontent.com/magnumripper/JohnTheRipper/bleeding-jumbo/run/password.lst 2>/dev/null || true
-    fi
-    
-    print_success "Signatures mises à jour"
-}
-
-# Vérification de l'intégrité du système
-check_system_integrity() {
-    print_status "Vérification de l'intégrité du système..."
-    
-    local errors=0
-    
-    # Vérification des services critiques
-    local services=("ssh" "nginx" "hostapd" "dnsmasq")
-    for service in "${services[@]}"; do
-        if ! systemctl is-enabled "$service" >/dev/null 2>&1; then
-            print_warning "Service $service non activé"
-            ((errors++))
-        fi
-    done
-    
-    # Vérification des fichiers de configuration
-    local configs=(
-        "/etc/hostapd/hostapd.conf"
-        "/etc/dnsmasq.conf"
-        "/etc/nginx/sites-available/rasppunzel"
-    )
-    
-    for config in "${configs[@]}"; do
-        if [ ! -f "$config" ]; then
-            print_error "Fichier de configuration manquant: $config"
-            ((errors++))
-        fi
-    done
-    
-    # Vérification des outils essentiels
-    local tools=("nmap" "aircrack-ng" "john" "hashcat" "hydra")
-    for tool in "${tools[@]}"; do
-        if ! command -v "$tool" &> /dev/null; then
-            print_error "Outil manquant: $tool"
-            ((errors++))
-        fi
-    done
-    
-    if [ $errors -eq 0 ]; then
-        print_success "Intégrité du système OK"
-    else
-        print_warning "$errors problème(s) détecté(s)"
-    fi
-    
-    return $errors
-}
-
-# Optimisation du système
-optimize_system() {
-    print_status "Optimisation du système..."
-    
-    # Nettoyage des logs anciens
-    journalctl --vacuum-time=7d 2>/dev/null || true
-    
-    # Nettoyage des fichiers temporaires
-    rm -rf /tmp/rasppunzel-* 2>/dev/null || true
-    rm -rf /var/tmp/rasppunzel-* 2>/dev/null || true
-    
-    # Optimisation de la base de données locate
-    updatedb &
-    
-    # Nettoyage des paquets orphelins
-    apt-get autoremove --purge -y -qq
-    
-    # Vidage des caches
-    sync && echo 3 > /proc/sys/vm/drop_caches
-    
-    print_success "Optimisation terminée"
-}
-
-# Redémarrage des services si nécessaire
-restart_services_if_needed() {
-    print_status "Vérification de la nécessité de redémarrer les services..."
-    
-    # Liste des services à vérifier
-    local services=("hostapd" "dnsmasq" "nginx" "ssh")
-    local restart_needed=false
-    
-    for service in "${services[@]}"; do
-        if systemctl is-active --quiet "$service"; then
-            if ! systemctl status "$service" | grep -q "active (running)"; then
-                print_status "Redémarrage de $service nécessaire"
-                systemctl restart "$service"
-                restart_needed=true
-            fi
-        fi
-    done
-    
-    if $restart_needed; then
-        print_success "Services redémarrés"
-    else
-        print_status "Aucun redémarrage de service nécessaire"
-    fi
-}
-
-# Affichage du résumé
-show_update_summary() {
-    print_status "Résumé de la mise à jour:"
-    echo
-    
-    # Version du kernel
-    print_status "Kernel: $(uname -r)"
-    
-    # Versions des outils principaux
-    if command -v nmap &> /dev/null; then
-        print_status "Nmap: $(nmap --version | head -1 | awk '{print $3}')"
-    fi
-    
-    if command -v aircrack-ng &> /dev/null; then
-        print_status "Aircrack-ng: $(aircrack-ng --help | head -1 | awk '{print $2}')"
-    fi
-    
-    if command -v msfconsole &> /dev/null; then
-        print_status "Metasploit: $(msfconsole --version | head -1)"
-    fi
-    
-    # Espace disque
-    print_status "Espace disque utilisé: $(df -h / | awk 'NR==2 {print $5}')"
-    
-    # Dernière mise à jour
-    echo "$(date)" > /opt/rasppunzel-scripts/.last_update
-    print_success "Dernière mise à jour: $(date)"
-}
-
-# Menu interactif
-interactive_menu() {
-    while true; do
-        show_banner
-        echo -e "${YELLOW}Options de mise à jour:${NC}"
-        echo "1. Mise à jour complète (recommandé)"
-        echo "2. Système de base uniquement"
-        echo "3. Outils Git uniquement"
-        echo "4. Outils Python uniquement"
-        echo "5. Metasploit uniquement"
-        echo "6. Wordlists uniquement"
-        echo "7. Vérification d'intégrité"
-        echo "8. Optimisation système"
-        echo "9. Quitter"
-        echo
-        
-        read -p "Votre choix [1-9]: " choice
-        
-        case $choice in
-            1) full_update ;;
-            2) update_base_system ;;
-            3) update_git_tools ;;
-            4) update_python_tools ;;
-            5) update_metasploit ;;
-            6) update_wordlists ;;
-            7) check_system_integrity ;;
-            8) optimize_system ;;
-            9) break ;;
-            *) print_error "Choix invalide" ;;
-        esac
-        
-        echo
-        read -p "Appuyez sur Entrée pour continuer..."
-    done
-}
-
-# Mise à jour complète
-full_update() {
-    print_status "Début de la mise à jour complète..."
-    
-    backup_configs
-    update_base_system
-    update_git_tools
-    update_python_tools
-    update_metasploit
-    update_wordlists
-    update_signatures
-    check_system_integrity
-    optimize_system
-    restart_services_if_needed
-    show_update_summary
-    
-    print_success "Mise à jour complète terminée!"
-}
-
-# Fonction principale
-main() {
-    check_root
-    
-    case "${1:-menu}" in
-        full|complete)
-            full_update
+    case $choice in
+        1)
+            update_system
             ;;
-        system|base)
-            backup_configs
-            update_base_system
+        2)
+            update_ligolo
             ;;
-        git)
-            update_git_tools
+        3)
+            update_system
+            echo ""
+            update_ligolo
             ;;
-        python|py)
-            update_python_tools
-            ;;
-        metasploit|msf)
-            update_metasploit
-            ;;
-        wordlists)
-            update_wordlists
-            ;;
-        check|verify)
-            check_system_integrity
-            ;;
-        optimize)
-            optimize_system
-            ;;
-        menu)
-            interactive_menu
+        4)
+            exit 0
             ;;
         *)
-            echo "Usage: $0 {full|system|git|python|metasploit|wordlists|check|optimize|menu}"
-            echo
-            echo "Commandes:"
-            echo "  full       - Mise à jour complète (recommandé)"
-            echo "  system     - Système de base uniquement"
-            echo "  git        - Outils Git uniquement"
-            echo "  python     - Outils Python uniquement"
-            echo "  metasploit - Metasploit uniquement"
-            echo "  wordlists  - Wordlists et dictionnaires"
-            echo "  check      - Vérification d'intégrité"
-            echo "  optimize   - Optimisation système"
-            echo "  menu       - Menu interactif (défaut)"
+            echo -e "${RED}Invalid option${NC}"
             exit 1
             ;;
     esac
-}
-
-# Point d'entrée
-if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-    main "$@"
+else
+    # Command line argument
+    case "$1" in
+        system)
+            update_system
+            ;;
+        ligolo)
+            update_ligolo
+            ;;
+        full|all)
+            update_system
+            echo ""
+            update_ligolo
+            ;;
+        *)
+            echo "Usage: $0 [system|ligolo|full]"
+            exit 1
+            ;;
+    esac
 fi
+
+echo ""
+echo -e "${GREEN}════════════════════════════════════════════════════════════════${NC}"
+echo -e "${GREEN}  Update Complete${NC}"
+echo -e "${GREEN}════════════════════════════════════════════════════════════════${NC}"
+echo ""

@@ -1,435 +1,624 @@
 #!/bin/bash
 
-# -------------------------------------------------------------------------------------------------
-# RaspPunzel - Installation Dashboard Web
-# Script d'intégration pour la structure de projet existante
-# -------------------------------------------------------------------------------------------------
+# =================================================================================================
+# RaspPunzel - Web Dashboard Installation Script
+# =================================================================================================
 
 set -e
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
-# Variables
-PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-INSTALL_DIR="/opt/rasppunzel"
-WEB_DIR="$INSTALL_DIR/web"
-PYTHON_ENV="$WEB_DIR/venv"
-USER="pi"
+# Load configuration
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 
-# Fonctions utilitaires
-log_info() {
-    echo -e "${BLUE}[INFO]${NC} $1"
+if [[ -f "${PROJECT_ROOT}/config.sh" ]]; then
+    source "${PROJECT_ROOT}/config.sh"
+else
+    echo -e "${RED}Error: config.sh not found${NC}"
+    exit 1
+fi
+
+if [[ "${ENABLE_WEB_DASHBOARD}" != "true" ]]; then
+    echo -e "${YELLOW}[~] Web dashboard disabled in config${NC}"
+    exit 0
+fi
+
+echo -e "${YELLOW}[~] Installing web dashboard...${NC}"
+
+# Install dependencies
+echo -e "${YELLOW}[~] Installing system packages...${NC}"
+apt-get update -qq
+apt-get install -y -qq python3 python3-pip python3-venv nginx > /dev/null
+
+# Create web directory
+mkdir -p /opt/rasppunzel/web/api
+mkdir -p /opt/rasppunzel/web/static
+
+# Copy web files
+if [[ -d "${PROJECT_ROOT}/web" ]]; then
+    cp "${PROJECT_ROOT}/web/index.html" /opt/rasppunzel/web/ 2>/dev/null || true
+    cp "${PROJECT_ROOT}/web/dashboard.html" /opt/rasppunzel/web/ 2>/dev/null || true
+fi
+
+# Create Flask API
+cat > /opt/rasppunzel/web/api/app.py <<'PYEOF'
+#!/usr/bin/env python3
+from flask import Flask, render_template, jsonify, request, session, redirect
+from flask_socketio import SocketIO, emit
+import subprocess
+import psutil
+import os
+from datetime import datetime
+
+app = Flask(__name__, template_folder='/opt/rasppunzel/web')
+app.secret_key = os.urandom(24)
+socketio = SocketIO(app, cors_allowed_origins="*")
+
+# Simple authentication (CHANGE IN PRODUCTION!)
+USERS = {
+    'admin': 'rasppunzel'  # Username: admin, Password: rasppunzel
 }
 
-log_success() {
-    echo -e "${GREEN}[SUCCESS]${NC} $1"
-}
+@app.route('/')
+def index():
+    return redirect('/index.html')
 
-log_warning() {
-    echo -e "${YELLOW}[WARNING]${NC} $1"
-}
+@app.route('/api/login', methods=['POST'])
+def login():
+    data = request.json
+    username = data.get('username')
+    password = data.get('password')
+    
+    if USERS.get(username) == password:
+        session['logged_in'] = True
+        session['username'] = username
+        return jsonify({'success': True})
+    return jsonify({'success': False, 'message': 'Invalid credentials'})
 
-log_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
-}
+@app.route('/api/logout', methods=['POST'])
+def logout():
+    session.clear()
+    return jsonify({'success': True})
 
-check_root() {
-    if [[ $EUID -ne 0 ]]; then
-        log_error "Ce script doit être exécuté en tant que root"
-        echo "Utilisez: sudo $0"
-        exit 1
-    fi
-}
+@app.route('/api/status')
+def get_status():
+    if 'logged_in' not in session:
+        return jsonify({'success': False, 'message': 'Not authenticated'}), 401
+    
+    try:
+        # Check if agent is running
+        agent_running = is_service_active('ligolo-agent')
+        
+        # Check if agent is connected to proxy
+        agent_connected = False
+        if agent_running:
+            # Check logs for connection status
+            result = subprocess.run(
+                ['journalctl', '-u', 'ligolo-agent', '-n', '10', '--no-pager'],
+                capture_output=True, text=True
+            )
+            agent_connected = 'connected' in result.stdout.lower() or 'session' in result.stdout.lower()
+        
+        services = {
+            'ligolo_agent': agent_running,
+            'hostapd': is_service_active('hostapd'),
+            'dnsmasq': is_service_active('dnsmasq'),
+            'ssh': is_service_active('ssh')
+        }
+        
+        system = {
+            'hostname': os.uname().nodename,
+            'uptime': get_uptime(),
+            'cpu_percent': psutil.cpu_percent(interval=1),
+            'memory_percent': psutil.virtual_memory().percent,
+            'network_interfaces': get_network_interfaces()
+        }
+        
+        # Get agent configuration
+        agent_config = {}
+        if os.path.exists('/etc/rasppunzel/agent.conf'):
+            with open('/etc/rasppunzel/agent.conf', 'r') as f:
+                for line in f:
+                    if line.startswith('PROXY_HOST'):
+                        agent_config['proxy_host'] = line.split('=')[1].strip().strip('"')
+                    elif line.startswith('PROXY_PORT'):
+                        agent_config['proxy_port'] = line.split('=')[1].strip().strip('"')
+        
+        # Get version
+        if os.path.exists('/opt/rasppunzel/ligolo/VERSION'):
+            with open('/opt/rasppunzel/ligolo/VERSION', 'r') as f:
+                agent_config['version'] = f.read().strip()
+        
+        return jsonify({
+            'success': True,
+            'services': services,
+            'system': system,
+            'agent_connected': agent_connected,
+            'agent_config': agent_config,
+            'discovered_networks': []  # Will be populated by discover script
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
 
-check_dependencies() {
-    log_info "Vérification des dépendances..."
+@app.route('/api/services/<action>', methods=['POST'])
+def manage_services(action):
+    if 'logged_in' not in session:
+        return jsonify({'success': False, 'message': 'Not authenticated'}), 401
     
-    local missing_deps=()
+    services = ['ligolo-agent', 'hostapd', 'dnsmasq']
+    results = {}
     
-    for dep in python3 python3-pip python3-venv systemctl; do
-        if ! command -v $dep &> /dev/null; then
-            missing_deps+=($dep)
-        fi
-    done
+    for service in services:
+        try:
+            subprocess.run(['systemctl', action, service], check=True, capture_output=True)
+            results[service] = 'success'
+        except subprocess.CalledProcessError:
+            results[service] = 'failed'
     
-    if [ ${#missing_deps[@]} -ne 0 ]; then
-        log_warning "Dépendances manquantes: ${missing_deps[*]}"
-        log_info "Installation des dépendances..."
-        apt-get update -qq
-        apt-get install -y python3 python3-pip python3-venv systemd
-    fi
-    
-    log_success "Dépendances vérifiées"
-}
+    return jsonify({'success': True, 'results': results})
 
-create_directories() {
-    log_info "Création des répertoires..."
+@app.route('/api/agent/restart', methods=['POST'])
+def restart_agent():
+    if 'logged_in' not in session:
+        return jsonify({'success': False, 'message': 'Not authenticated'}), 401
     
-    mkdir -p "$WEB_DIR/api"
-    mkdir -p "$WEB_DIR/assets"
-    mkdir -p "/var/log/rasppunzel"
-    
-    log_success "Répertoires créés"
-}
+    try:
+        subprocess.run(['systemctl', 'restart', 'ligolo-agent'], check=True)
+        return jsonify({'success': True})
+    except subprocess.CalledProcessError as e:
+        return jsonify({'success': False, 'message': str(e)})
 
-setup_python_environment() {
-    log_info "Configuration de l'environnement Python..."
+@app.route('/api/networks/discover', methods=['POST'])
+def discover_networks():
+    if 'logged_in' not in session:
+        return jsonify({'success': False, 'message': 'Not authenticated'}), 401
     
-    # Créer l'environnement virtuel
-    python3 -m venv "$PYTHON_ENV"
-    
-    # Mettre à jour pip
-    "$PYTHON_ENV/bin/pip" install --upgrade pip
-    
-    # Installer les dépendances
-    if [ -f "$PROJECT_ROOT/web/api/requirements.txt" ]; then
-        "$PYTHON_ENV/bin/pip" install -r "$PROJECT_ROOT/web/api/requirements.txt"
-    else
-        log_warning "Fichier requirements.txt non trouvé, installation des dépendances de base"
-        "$PYTHON_ENV/bin/pip" install Flask==3.0.0 Flask-CORS==4.0.0 Flask-SocketIO==5.3.6 psutil==5.9.5 python-socketio==5.9.0 eventlet==0.33.3
-    fi
-    
-    log_success "Environnement Python configuré"
-}
+    try:
+        result = subprocess.run(
+            ['bash', '/opt/rasppunzel/scripts/discover-routes.sh', '--json'],
+            capture_output=True, text=True, timeout=30
+        )
+        
+        if result.returncode == 0:
+            import json
+            data = json.loads(result.stdout)
+            return jsonify({
+                'success': True,
+                'networks': data.get('networks', [])
+            })
+        else:
+            return jsonify({'success': False, 'message': 'Discovery failed'})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)})
 
-install_web_files() {
-    log_info "Installation des fichiers web..."
+@app.route('/api/networks/export')
+def export_networks():
+    if 'logged_in' not in session:
+        return jsonify({'success': False, 'message': 'Not authenticated'}), 401
     
-    # Copier l'API
-    if [ -f "$PROJECT_ROOT/web/api/app.py" ]; then
-        cp "$PROJECT_ROOT/web/api/app.py" "$WEB_DIR/api/"
-        log_success "API copiée"
-    else
-        log_error "Fichier app.py non trouvé dans $PROJECT_ROOT/web/api/"
-        exit 1
-    fi
-    
-    # Copier le dashboard
-    if [ -f "$PROJECT_ROOT/web/dashboard.html" ]; then
-        cp "$PROJECT_ROOT/web/dashboard.html" "$WEB_DIR/"
-        log_success "Dashboard HTML copié"
-    else
-        log_error "Fichier dashboard.html non trouvé dans $PROJECT_ROOT/web/"
-        exit 1
-    fi
-    
-    # Copier les assets s'ils existent
-    if [ -d "$PROJECT_ROOT/web/assets" ] && [ "$(ls -A $PROJECT_ROOT/web/assets)" ]; then
-        cp -r "$PROJECT_ROOT/web/assets/"* "$WEB_DIR/assets/"
-        log_success "Assets copiés"
-    fi
-    
-    # Copier les requirements
-    if [ -f "$PROJECT_ROOT/web/api/requirements.txt" ]; then
-        cp "$PROJECT_ROOT/web/api/requirements.txt" "$WEB_DIR/api/"
-    fi
-}
+    try:
+        result = subprocess.run(
+            ['bash', '/opt/rasppunzel/scripts/discover-routes.sh', '--json'],
+            capture_output=True, text=True
+        )
+        
+        if result.returncode == 0:
+            import json
+            data = json.loads(result.stdout)
+            return jsonify({
+                'success': True,
+                'networks': data.get('networks', [])
+            })
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)})
 
-setup_systemd_service() {
-    log_info "Configuration du service systemd..."
+@app.route('/api/logs')
+def get_logs():
+    if 'logged_in' not in session:
+        return jsonify({'success': False, 'message': 'Not authenticated'}), 401
     
-    local service_file="/etc/systemd/system/rasppunzel-web.service"
+    try:
+        result = subprocess.run(
+            ['journalctl', '-u', 'ligolo-agent', '-n', '50', '--no-pager'],
+            capture_output=True, text=True
+        )
+        logs = result.stdout.strip().split('\n')
+        return jsonify({'success': True, 'logs': logs})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/network/info')
+def network_info():
+    if 'logged_in' not in session:
+        return jsonify({'success': False, 'message': 'Not authenticated'}), 401
     
-    # Utiliser le fichier de service du projet s'il existe
-    if [ -f "$PROJECT_ROOT/config/systemd/rasppunzel-web.service" ]; then
-        cp "$PROJECT_ROOT/config/systemd/rasppunzel-web.service" "$service_file"
-        log_success "Service systemd copié depuis le projet"
-    else
-        log_info "Création du service systemd..."
-        cat > "$service_file" << EOF
+    interfaces = {}
+    for iface, addrs in psutil.net_if_addrs().items():
+        for addr in addrs:
+            if addr.family == 2:  # IPv4
+                status = psutil.net_if_stats()[iface].isup
+                interfaces[iface] = {
+                    'ip': addr.address,
+                    'status': 'up' if status else 'down'
+                }
+    
+    return jsonify({'success': True, 'interfaces': interfaces})
+
+def is_service_active(service):
+    try:
+        result = subprocess.run(
+            ['systemctl', 'is-active', service],
+            capture_output=True, text=True
+        )
+        return result.stdout.strip() == 'active'
+    except:
+        return False
+
+def get_uptime():
+    try:
+        with open('/proc/uptime', 'r') as f:
+            uptime_seconds = float(f.readline().split()[0])
+            hours = int(uptime_seconds // 3600)
+            minutes = int((uptime_seconds % 3600) // 60)
+            return f"{hours}h {minutes}m"
+    except:
+        return "Unknown"
+
+def get_network_interfaces():
+    interfaces = {}
+    for iface, addrs in psutil.net_if_addrs().items():
+        for addr in addrs:
+            if addr.family == 2:  # IPv4
+                interfaces[iface] = {'ip': addr.address}
+    return interfaces
+
+if __name__ == '__main__':
+    socketio.run(app, host='127.0.0.1', port=5000, debug=False)
+PYEOF
+
+# Create requirements.txt
+cat > /opt/rasppunzel/web/api/requirements.txt <<EOF
+Flask==3.0.0
+Flask-SocketIO==5.3.5
+python-socketio==5.10.0
+psutil==5.9.6
+eventlet==0.33.3
+EOF
+
+# Create virtual environment and install dependencies
+echo -e "${YELLOW}[~] Installing Python dependencies...${NC}"
+cd /opt/rasppunzel/web/api
+python3 -m venv venv
+source venv/bin/activate
+pip3 install --quiet --upgrade pip
+pip3 install --quiet -r requirements.txt
+deactivate
+
+# Make app executable
+chmod +x /opt/rasppunzel/web/api/app.py
+
+# Configure Nginx
+echo -e "${YELLOW}[~] Configuring Nginx...${NC}"
+cp "${PROJECT_ROOT}/config/nginx-rasppunzel.conf" /etc/nginx/sites-available/rasppunzel 2>/dev/null || \
+cat > /etc/nginx/sites-available/rasppunzel <<'NGINXEOF'
+server {
+    listen 8080 default_server;
+    listen [::]:8080 default_server;
+    server_name rasppunzel.local;
+    root /opt/rasppunzel/web;
+    index index.html;
+    
+    access_log /var/log/nginx/rasppunzel_access.log;
+    error_log /var/log/nginx/rasppunzel_error.log;
+    
+    location = / {
+        try_files /index.html =404;
+    }
+    
+    location /api/ {
+        proxy_pass http://127.0.0.1:5000/api/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+    
+    location /socket.io/ {
+        proxy_pass http://127.0.0.1:5000/socket.io/;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
+    
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg)$ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+    }
+}
+NGINXEOF
+
+# Enable Nginx site
+ln -sf /etc/nginx/sites-available/rasppunzel /etc/nginx/sites-enabled/
+rm -f /etc/nginx/sites-enabled/default
+
+# Test Nginx configuration
+nginx -t
+
+# Create systemd service for Flask
+echo -e "${YELLOW}[~] Creating Flask service...${NC}"
+cat > /etc/systemd/system/rasppunzel-web.service <<EOF
 [Unit]
-Description=RaspPunzel Web Dashboard
-Documentation=https://github.com/theimposterz/rasppunzel
+Description=RaspPunzel Web Dashboard API
 After=network.target
-Wants=network.target
 
 [Service]
 Type=simple
-User=$USER
-Group=$USER
-WorkingDirectory=$WEB_DIR
-Environment=PATH=$PYTHON_ENV/bin
-Environment=PYTHONPATH=$WEB_DIR
-ExecStart=$PYTHON_ENV/bin/python api/app.py --host=0.0.0.0 --port=8080
-ExecReload=/bin/kill -HUP \$MAINPID
-KillMode=mixed
-KillSignal=SIGINT
-TimeoutStopSec=5
+User=root
+WorkingDirectory=/opt/rasppunzel/web/api
+Environment="PATH=/opt/rasppunzel/web/api/venv/bin"
+ExecStart=/opt/rasppunzel/web/api/venv/bin/python3 /opt/rasppunzel/web/api/app.py
 Restart=always
-RestartSec=3
-StartLimitIntervalSec=60
-StartLimitBurst=3
-
-# Logging
-StandardOutput=journal
-StandardError=journal
-SyslogIdentifier=rasppunzel-web
-
-# Security
-NoNewPrivileges=true
-PrivateTmp=true
-ProtectSystem=strict
-ProtectHome=true
-ReadWritePaths=/var/log/rasppunzel
-ReadOnlyPaths=$INSTALL_DIR
+RestartSec=10
 
 [Install]
 WantedBy=multi-user.target
 EOF
-        log_success "Service systemd créé"
-    fi
-    
-    # Recharger systemd et activer le service
-    systemctl daemon-reload
-    systemctl enable rasppunzel-web
-    
-    log_success "Service systemd configuré et activé"
-}
 
-set_permissions() {
-    log_info "Configuration des permissions..."
-    
-    # Vérifier si l'utilisateur existe
-    if ! id "$USER" &>/dev/null; then
-        log_warning "Utilisateur $USER n'existe pas, utilisation de l'utilisateur actuel"
-        USER=$(logname 2>/dev/null || echo $SUDO_USER || echo $USER)
-    fi
-    
-    chown -R "$USER:$USER" "$WEB_DIR"
-    chmod +x "$WEB_DIR/api/app.py"
-    
-    # Permissions pour les logs
-    chown "$USER:$USER" "/var/log/rasppunzel"
-    
-    log_success "Permissions configurées"
-}
+# Store credentials
+cat > /opt/rasppunzel/web/.credentials <<EOF
+RaspPunzel Web Dashboard Credentials
+====================================
+URL: http://$(hostname -I | awk '{print $1}'):8080
+Username: admin
+Password: rasppunzel
 
-integrate_with_existing_scripts() {
-    log_info "Intégration avec les scripts existants..."
-    
-    # Modifier le script de démarrage s'il existe
-    local start_script="$PROJECT_ROOT/scripts/start-services.sh"
-    if [ -f "$start_script" ] && ! grep -q "rasppunzel-web" "$start_script"; then
-        echo "" >> "$start_script"
-        echo "# Dashboard web" >> "$start_script"
-        echo "systemctl start rasppunzel-web" >> "$start_script"
-        log_success "Dashboard ajouté au script de démarrage"
-    fi
-    
-    # Modifier le script d'arrêt s'il existe
-    local stop_script="$PROJECT_ROOT/scripts/stop-services.sh"
-    if [ -f "$stop_script" ] && ! grep -q "rasppunzel-web" "$stop_script"; then
-        sed -i '/systemctl stop/a systemctl stop rasppunzel-web' "$stop_script"
-        log_success "Dashboard ajouté au script d'arrêt"
-    fi
-}
+IMPORTANT: Change these credentials in /opt/rasppunzel/web/api/app.py
+Edit the USERS dictionary and restart the service:
+  sudo nano /opt/rasppunzel/web/api/app.py
+  sudo systemctl restart rasppunzel-web
+====================================
+EOF
+chmod 600 /opt/rasppunzel/web/.credentials
 
-create_management_scripts() {
-    log_info "Création des scripts de gestion..."
-    
-    # Script de démarrage spécifique au dashboard
-    cat > "/usr/local/bin/rasppunzel-web-start" << 'EOF'
-#!/bin/bash
-set -e
+# Enable services
+systemctl daemon-reload
+systemctl enable rasppunzel-web
+systemctl enable nginx
 
-echo "[+] Démarrage du dashboard web RaspPunzel..."
+# Restart services
+systemctl restart rasppunzel-web
+systemctl restart nginx
 
-if ! systemctl is-active --quiet rasppunzel-web; then
-    systemctl start rasppunzel-web
-    sleep 2
+echo -e "${GREEN}[+] Web dashboard installed${NC}"
+echo ""
+echo "  URL: http://$(hostname -I | awk '{print $1}'):8080"
+echo "  Credentials: cat /opt/rasppunzel/web/.credentials"
+echo "  Services:"
+echo "    - Flask API: systemctl status rasppunzel-web"
+echo "    - Nginx: systemctl status nginx"
+echo ""
+
+
+# Create web directory
+mkdir -p /opt/rasppunzel/web/api
+mkdir -p /opt/rasppunzel/web/static
+
+# Copy web files
+if [[ -d "${PROJECT_ROOT}/web" ]]; then
+    cp -r "${PROJECT_ROOT}/web/"* /opt/rasppunzel/web/
 fi
 
-if systemctl is-active --quiet rasppunzel-web; then
-    echo "[✓] Dashboard web démarré avec succès"
-    echo "[i] Accessible sur :"
-    echo "    http://$(hostname -I | awk '{print $1}'):8080"
-    echo "    http://10.0.0.1:8080 (via point d'accès)"
-else
-    echo "[✗] Échec du démarrage du dashboard web"
-    systemctl status rasppunzel-web --no-pager
-    exit 1
-fi
-EOF
+# Create Flask API
+cat > /opt/rasppunzel/web/api/app.py <<'PYEOF'
+#!/usr/bin/env python3
+from flask import Flask, render_template, jsonify, request, session
+from flask_socketio import SocketIO, emit
+import subprocess
+import psutil
+import os
+from datetime import datetime
 
-    # Script d'arrêt spécifique au dashboard
-    cat > "/usr/local/bin/rasppunzel-web-stop" << 'EOF'
-#!/bin/bash
-set -e
+app = Flask(__name__, template_folder='/opt/rasppunzel/web')
+app.secret_key = os.urandom(24)
+socketio = SocketIO(app, cors_allowed_origins="*")
 
-echo "[+] Arrêt du dashboard web RaspPunzel..."
+# Simple authentication
+USERS = {'admin': 'rasppunzel'}  # Change in production
 
-systemctl stop rasppunzel-web
-pkill -f "rasppunzel.*app.py" 2>/dev/null || true
+@app.route('/')
+def index():
+    if 'logged_in' not in session:
+        return render_template('login.html')
+    return render_template('dashboard.html')
 
-echo "[✓] Dashboard web arrêté"
-EOF
-
-    # Script de statut
-    cat > "/usr/local/bin/rasppunzel-web-status" << 'EOF'
-#!/bin/bash
-
-echo "=== STATUS DASHBOARD WEB RASPPUNZEL ==="
-echo
-
-if systemctl is-active --quiet rasppunzel-web; then
-    echo "Status: ACTIF"
-    echo "URL: http://$(hostname -I | awk '{print $1}'):8080"
-    echo "Logs: journalctl -u rasppunzel-web -f"
-else
-    echo "Status: INACTIF"
-    echo "Démarrer avec: systemctl start rasppunzel-web"
-fi
-
-echo
-echo "=== PROCESSUS ==="
-ps aux | grep -E "(rasppunzel|app\.py)" | grep -v grep || echo "Aucun processus"
-
-echo
-echo "=== PORTS ==="
-netstat -tlpn 2>/dev/null | grep :8080 || echo "Port 8080 non utilisé"
-EOF
-
-    # Rendre les scripts exécutables
-    chmod +x /usr/local/bin/rasppunzel-web-*
+@app.route('/api/login', methods=['POST'])
+def login():
+    data = request.json
+    username = data.get('username')
+    password = data.get('password')
     
-    log_success "Scripts de gestion créés"
-}
+    if USERS.get(username) == password:
+        session['logged_in'] = True
+        session['username'] = username
+        return jsonify({'success': True})
+    return jsonify({'success': False, 'message': 'Invalid credentials'})
 
-test_installation() {
-    log_info "Test de l'installation..."
+@app.route('/api/status')
+def get_status():
+    if 'logged_in' not in session:
+        return jsonify({'success': False, 'message': 'Not authenticated'}), 401
     
-    # Test de démarrage
-    systemctl start rasppunzel-web
-    sleep 5
-    
-    if systemctl is-active --quiet rasppunzel-web; then
-        log_success "Service démarré avec succès"
+    try:
+        services = {
+            'ligolo_proxy': is_service_active('ligolo-proxy'),
+            'hostapd': is_service_active('hostapd'),
+            'dnsmasq': is_service_active('dnsmasq'),
+            'ssh': is_service_active('ssh')
+        }
         
-        # Test de connectivité
-        if curl -s -o /dev/null -w "%{http_code}" http://localhost:8080 | grep -q "200\|404"; then
-            log_success "Dashboard accessible sur le port 8080"
-        else
-            log_warning "Dashboard démarré mais non accessible via HTTP"
-        fi
+        system = {
+            'hostname': os.uname().nodename,
+            'uptime': get_uptime(),
+            'cpu_percent': psutil.cpu_percent(interval=1),
+            'memory_percent': psutil.virtual_memory().percent,
+            'network_interfaces': get_network_interfaces()
+        }
         
-        systemctl stop rasppunzel-web
-    else
-        log_error "Échec du démarrage du service"
-        journalctl -u rasppunzel-web --no-pager -n 10
-        return 1
-    fi
-    
-    log_success "Test d'installation réussi"
-}
+        return jsonify({
+            'success': True,
+            'services': services,
+            'system': system,
+            'agents': [],  # To be implemented
+            'routes': get_routes()
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
 
-show_completion_message() {
-    echo
-    echo -e "${GREEN}╔══════════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${GREEN}║                                                                  ║${NC}"
-    echo -e "${GREEN}║             🎉 INSTALLATION TERMINÉE AVEC SUCCÈS 🎉             ║${NC}"
-    echo -e "${GREEN}║                                                                  ║${NC}"
-    echo -e "${GREEN}╚══════════════════════════════════════════════════════════════════╝${NC}"
-    echo
-    echo -e "${YELLOW}📁 Installation:${NC}"
-    echo "   • Répertoire: $WEB_DIR"
-    echo "   • Service: rasppunzel-web"
-    echo "   • Logs: /var/log/rasppunzel"
-    echo
-    echo -e "${YELLOW}🚀 Démarrage:${NC}"
-    echo "   • make start-web"
-    echo "   • systemctl start rasppunzel-web"
-    echo "   • rasppunzel-web-start"
-    echo
-    echo -e "${YELLOW}🌐 Accès web:${NC}"
-    echo "   • http://$(hostname -I | awk '{print $1}'):8080"
-    echo "   • http://10.0.0.1:8080 (via point d'accès WiFi)"
-    echo
-    echo -e "${YELLOW}📊 Monitoring:${NC}"
-    echo "   • make web-logs"
-    echo "   • journalctl -u rasppunzel-web -f"
-    echo "   • rasppunzel-web-status"
-    echo
-    echo -e "${YELLOW}🔧 Gestion:${NC}"
-    echo "   • make status (statut général)"
-    echo "   • make restart-web (redémarrage)"
-    echo "   • make stop-web (arrêt)"
-    echo
-    echo -e "${GREEN}✅ Dashboard web RaspPunzel prêt à l'utilisation !${NC}"
-}
+@app.route('/api/services/<action>', methods=['POST'])
+def manage_services(action):
+    if 'logged_in' not in session:
+        return jsonify({'success': False, 'message': 'Not authenticated'}), 401
+    
+    services = ['ligolo-proxy', 'hostapd', 'dnsmasq']
+    results = {}
+    
+    for service in services:
+        try:
+            subprocess.run(['systemctl', action, service], check=True, capture_output=True)
+            results[service] = 'success'
+        except subprocess.CalledProcessError:
+            results[service] = 'failed'
+    
+    return jsonify({'success': True, 'results': results})
 
-# Fonction principale
-main() {
-    echo -e "${BLUE}╔══════════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${BLUE}║                                                                  ║${NC}"
-    echo -e "${BLUE}║              🚀 INSTALLATION DASHBOARD WEB RASPPUNZEL           ║${NC}"
-    echo -e "${BLUE}║                                                                  ║${NC}"
-    echo -e "${BLUE}╚══════════════════════════════════════════════════════════════════╝${NC}"
-    echo
+@app.route('/api/logs')
+def get_logs():
+    if 'logged_in' not in session:
+        return jsonify({'success': False, 'message': 'Not authenticated'}), 401
     
-    # Vérifications préalables
-    check_root
-    check_dependencies
-    
-    # Processus d'installation
-    create_directories
-    setup_python_environment
-    install_web_files
-    setup_systemd_service
-    set_permissions
-    integrate_with_existing_scripts
-    create_management_scripts
-    
-    # Test et finalisation
-    test_installation
-    show_completion_message
-}
+    try:
+        result = subprocess.run(
+            ['journalctl', '-u', 'ligolo-proxy', '-n', '50', '--no-pager'],
+            capture_output=True, text=True
+        )
+        logs = result.stdout.strip().split('\n')
+        return jsonify({'success': True, 'logs': logs})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
 
-# Gestion des arguments
-case "${1:-}" in
-    --check)
-        check_dependencies
-        echo "✅ Toutes les dépendances sont satisfaites"
-        ;;
-    --test)
-        log_info "Test de l'installation existante..."
-        if systemctl is-enabled --quiet rasppunzel-web 2>/dev/null; then
-            test_installation
-        else
-            log_error "Service rasppunzel-web non installé"
-            exit 1
-        fi
-        ;;
-    --uninstall)
-        log_warning "Désinstallation du dashboard web..."
-        systemctl stop rasppunzel-web 2>/dev/null || true
-        systemctl disable rasppunzel-web 2>/dev/null || true
-        rm -f /etc/systemd/system/rasppunzel-web.service
-        rm -rf "$WEB_DIR"
-        rm -f /usr/local/bin/rasppunzel-web-*
-        systemctl daemon-reload
-        log_success "Dashboard web désinstallé"
-        ;;
-    --help|-h)
-        echo "Usage: $0 [OPTIONS]"
-        echo
-        echo "Options:"
-        echo "  --check       Vérifier les dépendances"
-        echo "  --test        Tester l'installation"
-        echo "  --uninstall   Désinstaller le dashboard web"
-        echo "  --help, -h    Afficher cette aide"
-        echo
-        echo "Installation normale: $0 (sans arguments)"
-        ;;
-    "")
-        main
-        ;;
-    *)
-        log_error "Option inconnue: $1"
-        echo "Utilisez --help pour voir les options disponibles"
-        exit 1
-        ;;
-esac
+def is_service_active(service):
+    try:
+        result = subprocess.run(
+            ['systemctl', 'is-active', service],
+            capture_output=True, text=True
+        )
+        return result.stdout.strip() == 'active'
+    except:
+        return False
+
+def get_uptime():
+    try:
+        with open('/proc/uptime', 'r') as f:
+            uptime_seconds = float(f.readline().split()[0])
+            hours = int(uptime_seconds // 3600)
+            minutes = int((uptime_seconds % 3600) // 60)
+            return f"{hours}h {minutes}m"
+    except:
+        return "Unknown"
+
+def get_network_interfaces():
+    interfaces = {}
+    for iface, addrs in psutil.net_if_addrs().items():
+        for addr in addrs:
+            if addr.family == 2:  # IPv4
+                interfaces[iface] = {'ip': addr.address}
+    return interfaces
+
+def get_routes():
+    try:
+        result = subprocess.run(
+            ['ip', 'route', 'show'],
+            capture_output=True, text=True
+        )
+        routes = []
+        for line in result.stdout.strip().split('\n'):
+            if 'ligolo' in line:
+                parts = line.split()
+                if len(parts) >= 3:
+                    routes.append({
+                        'network': parts[0],
+                        'interface': 'ligolo'
+                    })
+        return routes
+    except:
+        return []
+
+if __name__ == '__main__':
+    socketio.run(app, host='0.0.0.0', port=5000, debug=False)
+PYEOF
+
+# Create requirements.txt
+cat > /opt/rasppunzel/web/api/requirements.txt <<EOF
+Flask==3.0.0
+Flask-SocketIO==5.3.5
+python-socketio==5.10.0
+psutil==5.9.6
+eventlet==0.33.3
+EOF
+
+# Create virtual environment and install dependencies
+echo -e "${YELLOW}[~] Installing Python dependencies...${NC}"
+cd /opt/rasppunzel/web/api
+python3 -m venv venv
+source venv/bin/activate
+pip3 install --quiet --upgrade pip
+pip3 install --quiet -r requirements.txt
+deactivate
+
+# Make app executable
+chmod +x /opt/rasppunzel/web/api/app.py
+
+# Create systemd service
+echo -e "${YELLOW}[~] Creating web service...${NC}"
+cat > /etc/systemd/system/rasppunzel-web.service <<EOF
+[Unit]
+Description=RaspPunzel Web Dashboard
+After=network.target ligolo-proxy.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/rasppunzel/web/api
+Environment="PATH=/opt/rasppunzel/web/api/venv/bin"
+ExecStart=/opt/rasppunzel/web/api/venv/bin/python3 /opt/rasppunzel/web/api/app.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# Store credentials
+cat > /opt/rasppunzel/web/.credentials <<EOF
+Web Dashboard Credentials
+=========================
+URL: http://$(hostname -I | awk '{print $1}'):${WEB_PORT}
+Username: ${WEB_USERNAME}
+Password: ${WEB_PASSWORD}
+
+CHANGE THESE IN: /opt/rasppunzel/web/api/app.py
+EOF
+chmod 600 /opt/rasppunzel/web/.credentials
+
+# Enable service
+systemctl daemon-reload
+systemctl enable rasppunzel-web
+
+echo -e "${GREEN}[+] Web dashboard installed${NC}"
+echo ""
+echo "  URL: http://$(hostname -I | awk '{print $1}'):${WEB_PORT}"
+echo "  Credentials: cat /opt/rasppunzel/web/.credentials"
+echo "  Start: systemctl start rasppunzel-web"
+echo ""

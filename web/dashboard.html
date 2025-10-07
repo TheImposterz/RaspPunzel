@@ -3,8 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RaspPunzel Dashboard</title>
-    <!-- Socket.IO pour la communication temps réel -->
+    <title>RaspPunzel - Dashboard</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
     <style>
         * {
@@ -21,7 +20,6 @@
             overflow-x: hidden;
         }
 
-        /* Animation du fond */
         body::before {
             content: '';
             position: fixed;
@@ -31,8 +29,7 @@
             height: 100%;
             background: 
                 radial-gradient(circle at 20% 50%, rgba(0, 255, 65, 0.1) 0%, transparent 50%),
-                radial-gradient(circle at 80% 20%, rgba(0, 255, 65, 0.08) 0%, transparent 50%),
-                radial-gradient(circle at 40% 80%, rgba(0, 255, 65, 0.06) 0%, transparent 50%);
+                radial-gradient(circle at 80% 20%, rgba(0, 255, 65, 0.08) 0%, transparent 50%);
             animation: float 20s ease-in-out infinite;
             pointer-events: none;
             z-index: -1;
@@ -70,7 +67,6 @@
         .header p {
             font-size: 1.2rem;
             opacity: 0.8;
-            margin-bottom: 20px;
         }
 
         .status-bar {
@@ -110,61 +106,27 @@
         .status-offline { color: #ff4444; }
         .status-warning { color: #ffaa00; }
 
-        .tools-grid {
+        .main-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            grid-template-columns: 2fr 1fr;
             gap: 25px;
             margin-bottom: 40px;
         }
 
-        .tool-category {
+        .panel {
             background: rgba(0, 0, 0, 0.7);
             border: 2px solid #00ff41;
             border-radius: 15px;
             padding: 25px;
             backdrop-filter: blur(15px);
-            transition: all 0.3s ease;
-            position: relative;
-            overflow: hidden;
         }
 
-        .tool-category::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 2px;
-            background: linear-gradient(90deg, transparent, #00ff41, transparent);
-            transition: left 0.5s ease;
-        }
-
-        .tool-category:hover::before {
-            left: 100%;
-        }
-
-        .tool-category:hover {
-            transform: translateY(-10px);
-            box-shadow: 0 20px 40px rgba(0, 255, 65, 0.3);
-            border-color: #00ff88;
-        }
-
-        .tool-category h3 {
+        .panel h3 {
             margin-bottom: 20px;
             color: #00ff41;
             font-size: 1.4rem;
             display: flex;
             align-items: center;
-            gap: 10px;
-        }
-
-        .tool-category .icon {
-            font-size: 1.8rem;
-        }
-
-        .tool-buttons {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
             gap: 10px;
         }
 
@@ -182,29 +144,10 @@
             overflow: hidden;
         }
 
-        .btn::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(0, 255, 65, 0.2), transparent);
-            transition: left 0.5s ease;
-        }
-
-        .btn:hover::before {
-            left: 100%;
-        }
-
         .btn:hover {
             background: linear-gradient(45deg, #004400, #008800);
             box-shadow: 0 5px 15px rgba(0, 255, 65, 0.4);
             transform: translateY(-2px);
-        }
-
-        .btn:active {
-            transform: translateY(0);
         }
 
         .btn.primary {
@@ -215,38 +158,6 @@
             background: linear-gradient(45deg, #660000, #aa0000);
             border-color: #ff4444;
             color: #ff4444;
-        }
-
-        .btn.running {
-            background: linear-gradient(45deg, #666600, #aaaa00);
-            border-color: #ffff44;
-            color: #ffff44;
-            animation: blink 1s ease-in-out infinite;
-        }
-
-        @keyframes blink {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.7; }
-        }
-
-        .btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-
-        .control-panel {
-            background: rgba(0, 0, 0, 0.8);
-            border: 2px solid #00ff41;
-            border-radius: 15px;
-            padding: 25px;
-            margin-bottom: 30px;
-        }
-
-        .control-panel h3 {
-            margin-bottom: 20px;
-            color: #00ff41;
-            font-size: 1.4rem;
-            text-align: center;
         }
 
         .control-buttons {
@@ -299,18 +210,71 @@
             to { opacity: 1; }
         }
 
-        .loading {
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-            border: 2px solid #00ff41;
-            border-radius: 50%;
-            border-top-color: transparent;
-            animation: spin 1s linear infinite;
+        .agent-list {
+            list-style: none;
         }
 
-        @keyframes spin {
-            to { transform: rotate(360deg); }
+        .agent-item {
+            background: rgba(0, 255, 65, 0.05);
+            border: 1px solid #00ff41;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 10px;
+            transition: all 0.3s ease;
+        }
+
+        .agent-item:hover {
+            background: rgba(0, 255, 65, 0.15);
+            transform: translateX(5px);
+        }
+
+        .agent-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .agent-name {
+            font-weight: bold;
+            color: #00ff41;
+        }
+
+        .agent-status {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #00ff41;
+            animation: pulse-dot 1s ease-in-out infinite;
+        }
+
+        @keyframes pulse-dot {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.2); opacity: 0.7; }
+        }
+
+        .routes-list {
+            list-style: none;
+        }
+
+        .route-item {
+            background: rgba(0, 255, 65, 0.05);
+            border-left: 3px solid #00ff41;
+            padding: 10px 15px;
+            margin-bottom: 8px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .quick-actions {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
         }
 
         .notification {
@@ -331,91 +295,23 @@
             transform: translateX(0);
         }
 
-        .notification.success {
-            border-color: #00ff41;
-            color: #00ff41;
-        }
+        .notification.success { border-color: #00ff41; color: #00ff41; }
+        .notification.error { border-color: #ff4444; color: #ff4444; }
+        .notification.warning { border-color: #ffaa00; color: #ffaa00; }
 
-        .notification.error {
-            border-color: #ff4444;
-            color: #ff4444;
-        }
-
-        .notification.warning {
-            border-color: #ffaa00;
-            color: #ffaa00;
-        }
-
-        .args-input {
-            width: 100%;
-            background: rgba(0, 0, 0, 0.8);
-            border: 1px solid #00ff41;
-            border-radius: 5px;
-            padding: 8px 12px;
-            color: #00ff41;
-            font-family: inherit;
-            font-size: 0.9rem;
-            margin-top: 10px;
-        }
-
-        .args-input:focus {
-            outline: none;
-            box-shadow: 0 0 10px rgba(0, 255, 65, 0.5);
-        }
-
-        .tool-status {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            margin-top: 15px;
-            font-size: 0.8rem;
-        }
-
-        .status-indicator {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: #333;
-        }
-
-        .status-indicator.running {
-            background: #ffaa00;
-            animation: pulse-status 1s ease-in-out infinite;
-        }
-
-        .status-indicator.online {
-            background: #00ff41;
-        }
-
-        .status-indicator.offline {
-            background: #ff4444;
-        }
-
-        @keyframes pulse-status {
-            0%, 100% { transform: scale(1); opacity: 1; }
-            50% { transform: scale(1.2); opacity: 0.7; }
+        @media (max-width: 1024px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
         }
 
         @media (max-width: 768px) {
-            .tools-grid {
-                grid-template-columns: 1fr;
-            }
-            
             .status-bar {
                 grid-template-columns: repeat(2, 1fr);
             }
             
             .header h1 {
                 font-size: 2rem;
-            }
-            
-            .control-buttons {
-                justify-content: stretch;
-            }
-            
-            .control-buttons .btn {
-                flex: 1;
-                min-width: 120px;
             }
         }
     </style>
@@ -424,148 +320,112 @@
     <div class="container">
         <!-- Header -->
         <div class="header">
-            <h1>🚀 RaspPunzel Dashboard</h1>
-            <p>Interface de Contrôle RedTeam</p>
-            <div class="status-indicator" id="connection-status"></div>
+            <h1>RaspPunzel Dashboard</h1>
+            <p>Ligolo-ng Network Pivot Control</p>
         </div>
 
         <!-- Status Bar -->
         <div class="status-bar">
             <div class="status-item">
-                <h3>WiFi AP</h3>
-                <div class="status-value" id="wifi-status">
-                    <span class="loading"></span>
+                <h3>Ligolo Proxy</h3>
+                <div class="status-value" id="proxy-status">
+                    <span class="status-offline">OFFLINE</span>
                 </div>
             </div>
             <div class="status-item">
-                <h3>Réseau</h3>
-                <div class="status-value" id="network-status">Chargement...</div>
+                <h3>Connected Agents</h3>
+                <div class="status-value" id="agent-count">0</div>
             </div>
             <div class="status-item">
-                <h3>Système</h3>
-                <div class="status-value" id="system-status">
-                    <span class="loading"></span>
+                <h3>Active Routes</h3>
+                <div class="status-value" id="route-count">0</div>
+            </div>
+            <div class="status-item">
+                <h3>Admin AP</h3>
+                <div class="status-value" id="ap-status">
+                    <span class="status-offline">OFFLINE</span>
                 </div>
             </div>
             <div class="status-item">
-                <h3>Uptime</h3>
-                <div class="status-value" id="uptime">--:--:--</div>
-            </div>
-            <div class="status-item">
-                <h3>CPU</h3>
+                <h3>CPU Usage</h3>
                 <div class="status-value" id="cpu-usage">--%</div>
             </div>
             <div class="status-item">
-                <h3>RAM</h3>
+                <h3>Memory</h3>
                 <div class="status-value" id="memory-usage">--%</div>
             </div>
         </div>
 
-        <!-- Control Panel -->
-        <div class="control-panel">
-            <h3>Contrôles Système</h3>
-            <div class="control-buttons">
-                <button class="btn primary" onclick="startServices()">Démarrer Services</button>
-                <button class="btn" onclick="restartServices()">Redémarrer</button>
-                <button class="btn danger" onclick="stopServices()">Arrêter Services</button>
-                <button class="btn" onclick="updateSystem()">Mise à Jour</button>
-                <button class="btn" onclick="showLogs()">Logs</button>
-            </div>
-        </div>
+        <!-- Main Grid -->
+        <div class="main-grid">
+            <!-- Left Column -->
+            <div>
+                <!-- Control Panel -->
+                <div class="panel">
+                    <h3>System Controls</h3>
+                    <div class="control-buttons">
+                        <button class="btn primary" onclick="startServices()">Start All</button>
+                        <button class="btn" onclick="restartServices()">Restart</button>
+                        <button class="btn danger" onclick="stopServices()">Stop All</button>
+                        <button class="btn" onclick="updateLigolo()">Update Ligolo</button>
+                    </div>
+                </div>
 
-        <!-- Tools Grid -->
-        <div class="tools-grid">
-            <!-- Reconnaissance -->
-            <div class="tool-category">
-                <h3>Reconnaissance</h3>
-                <div class="tool-buttons">
-                    <button class="btn" onclick="showToolDialog('nmap', 'Scan Réseau')">Nmap</button>
-                    <button class="btn" onclick="showToolDialog('masscan', 'Scan Rapide')">Masscan</button>
-                    <button class="btn" onclick="runTool('kismet', 'Monitor WiFi')">Kismet</button>
-                    <button class="btn" onclick="showToolDialog('airodump', 'Capture WiFi')">Airodump</button>
+                <!-- Connected Agents -->
+                <div class="panel" style="margin-top: 25px;">
+                    <h3>Connected Agents</h3>
+                    <ul class="agent-list" id="agent-list">
+                        <li style="text-align: center; opacity: 0.5;">No agents connected</li>
+                    </ul>
                 </div>
-                <div class="tool-status">
-                    <span>Status:</span>
-                    <div class="status-indicator" id="status-recon"></div>
-                    <span id="recon-info">Inactif</span>
-                </div>
-            </div>
 
-            <!-- WiFi Attacks -->
-            <div class="tool-category">
-                <h3>Attaques WiFi</h3>
-                <div class="tool-buttons">
-                    <button class="btn" onclick="showToolDialog('wifite', 'Auto Attack')">Wifite</button>
-                    <button class="btn" onclick="showToolDialog('aircrack', 'Crack WPA')">Aircrack</button>
-                    <button class="btn" onclick="showToolDialog('reaver', 'WPS Attack')">Reaver</button>
-                    <button class="btn" onclick="showToolDialog('bully', 'WPS Brute')">Bully</button>
-                </div>
-                <div class="tool-status">
-                    <span>Status:</span>
-                    <div class="status-indicator" id="status-wifi"></div>
-                    <span id="wifi-info">Inactif</span>
+                <!-- Active Routes -->
+                <div class="panel" style="margin-top: 25px;">
+                    <h3>Active Routes</h3>
+                    <ul class="routes-list" id="routes-list">
+                        <li style="text-align: center; opacity: 0.5;">No routes configured</li>
+                    </ul>
                 </div>
             </div>
 
-            <!-- Web Security -->
-            <div class="tool-category">
-                <h3>Sécurité Web</h3>
-                <div class="tool-buttons">
-                    <button class="btn" onclick="showToolDialog('nikto', 'Scan Web')">Nikto</button>
-                    <button class="btn" onclick="showToolDialog('gobuster', 'Dir Brute')">Gobuster</button>
-                    <button class="btn" onclick="showToolDialog('sqlmap', 'SQL Injection')">SQLMap</button>
-                    <button class="btn" onclick="runTool('beef', 'Framework BeEF')">BeEF</button>
+            <!-- Right Column -->
+            <div>
+                <!-- Quick Actions -->
+                <div class="panel">
+                    <h3>Quick Actions</h3>
+                    <div class="quick-actions">
+                        <button class="btn" onclick="showLogs()">View Logs</button>
+                        <button class="btn" onclick="showNetworkInfo()">Network Info</button>
+                        <button class="btn" onclick="exportConfig()">Export Config</button>
+                        <button class="btn" onclick="restartProxy()">Restart Proxy</button>
+                    </div>
                 </div>
-                <div class="tool-status">
-                    <span>Status:</span>
-                    <div class="status-indicator" id="status-web"></div>
-                    <span id="web-info">Inactif</span>
-                </div>
-            </div>
 
-            <!-- Password Attacks -->
-            <div class="tool-category">
-                <h3>Attaques Mots de Passe</h3>
-                <div class="tool-buttons">
-                    <button class="btn" onclick="showToolDialog('hydra', 'Brute Force')">Hydra</button>
-                    <button class="btn" onclick="showToolDialog('john', 'Hash Crack')">John</button>
-                    <button class="btn" onclick="showToolDialog('hashcat', 'GPU Crack')">Hashcat</button>
-                    <button class="btn" onclick="showToolDialog('medusa', 'Multi Brute')">Medusa</button>
+                <!-- System Info -->
+                <div class="panel" style="margin-top: 25px;">
+                    <h3>System Information</h3>
+                    <div style="font-size: 0.9rem; line-height: 1.6;">
+                        <div><strong>Hostname:</strong> <span id="hostname">--</span></div>
+                        <div><strong>Uptime:</strong> <span id="uptime">--</span></div>
+                        <div><strong>IP Address:</strong> <span id="ip-address">--</span></div>
+                        <div><strong>Ligolo Version:</strong> <span id="ligolo-version">--</span></div>
+                        <div><strong>Listening Port:</strong> <span id="listen-port">11601</span></div>
+                    </div>
                 </div>
-                <div class="tool-status">
-                    <span>Status:</span>
-                    <div class="status-indicator" id="status-password"></div>
-                    <span id="password-info">Inactif</span>
-                </div>
-            </div>
 
-            <!-- Exploitation -->
-            <div class="tool-category">
-                <h3>Exploitation</h3>
-                <div class="tool-buttons">
-                    <button class="btn" onclick="runTool('msfconsole', 'Metasploit')">MSF Console</button>
-                    <button class="btn" onclick="runTool('beef', 'Browser Hook')">BeEF</button>
-                </div>
-                <div class="tool-status">
-                    <span>Status:</span>
-                    <div class="status-indicator" id="status-exploit"></div>
-                    <span id="exploit-info">Inactif</span>
-                </div>
-            </div>
-
-            <!-- Network Analysis -->
-            <div class="tool-category">
-                <h3>Analyse Réseau</h3>
-                <div class="tool-buttons">
-                    <button class="btn" onclick="runTool('wireshark', 'Packet Analysis')">Wireshark</button>
-                    <button class="btn" onclick="showToolDialog('ettercap', 'MitM Attack')">Ettercap</button>
-                    <button class="btn" onclick="showToolDialog('bettercap', 'Network Attack')">Bettercap</button>
-                    <button class="btn" onclick="showToolDialog('tcpdump', 'Packet Capture')">TCPDump</button>
-                </div>
-                <div class="tool-status">
-                    <span>Status:</span>
-                    <div class="status-indicator" id="status-network"></div>
-                    <span id="network-info">Inactif</span>
+                <!-- Documentation -->
+                <div class="panel" style="margin-top: 25px;">
+                    <h3>Quick Reference</h3>
+                    <div style="font-size: 0.85rem; line-height: 1.8; opacity: 0.8;">
+                        <div><strong>Deploy Agent:</strong></div>
+                        <code style="display: block; background: rgba(0,0,0,0.5); padding: 8px; border-radius: 4px; margin: 5px 0;">
+                            ./agent -connect &lt;IP&gt;:11601 -ignore-cert
+                        </code>
+                        <div style="margin-top: 10px;"><strong>Add Route:</strong></div>
+                        <code style="display: block; background: rgba(0,0,0,0.5); padding: 8px; border-radius: 4px; margin: 5px 0;">
+                            sudo ip route add 172.16.10.0/24 dev ligolo
+                        </code>
+                    </div>
                 </div>
             </div>
         </div>
@@ -573,307 +433,172 @@
         <!-- Terminal Window -->
         <div class="terminal-window">
             <div class="terminal-header">
-                <span>Terminal RaspPunzel</span>
+                <span>Terminal Output</span>
                 <div style="display: flex; gap: 10px;">
-                    <button class="btn" onclick="clearTerminal()" style="padding: 5px 10px; font-size: 0.8rem;">Effacer</button>
-                    <button class="btn danger" onclick="stopAllTools()" style="padding: 5px 10px; font-size: 0.8rem;">Stop All</button>
+                    <button class="btn" onclick="clearTerminal()" style="padding: 5px 10px; font-size: 0.8rem;">Clear</button>
                 </div>
             </div>
             <div class="terminal-content" id="terminal">
-                <div class="terminal-line info">RaspPunzel v2.0 - Interface Web API</div>
-                <div class="terminal-line info">Connexion en cours...</div>
+                <div class="terminal-line info">RaspPunzel v2.0 - Ligolo-ng Dashboard</div>
+                <div class="terminal-line info">Connecting to server...</div>
             </div>
         </div>
     </div>
-
-    <!-- Dialog pour arguments d'outils -->
-    <div id="tool-dialog" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.95); border: 2px solid #00ff41; border-radius: 10px; padding: 20px; z-index: 2000; min-width: 400px;">
-        <h3 id="dialog-title" style="color: #00ff41; margin-bottom: 15px;"></h3>
-        <div style="margin-bottom: 15px;">
-            <label style="color: #00ff41; display: block; margin-bottom: 5px;">Arguments (optionnel):</label>
-            <input type="text" id="tool-args" class="args-input" placeholder="Ex: -sS -O target">
-        </div>
-        <div style="text-align: right;">
-            <button class="btn" onclick="closeToolDialog()" style="margin-right: 10px;">Annuler</button>
-            <button class="btn primary" onclick="runToolWithArgs()">Lancer</button>
-        </div>
-    </div>
-
-    <!-- Overlay pour dialog -->
-    <div id="dialog-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 1999;" onclick="closeToolDialog()"></div>
 
     <!-- Notification -->
     <div class="notification" id="notification"></div>
 
     <script>
-        // Variables globales
         let socket;
         let terminalElement = document.getElementById('terminal');
         let notificationElement = document.getElementById('notification');
-        let runningTools = new Set();
-        let currentTool = null;
         
-        // Configuration de l'API
         const API_BASE = window.location.origin;
 
-        // Initialisation de Socket.IO
+        // Initialize Socket.IO
         function initializeSocket() {
             socket = io(API_BASE);
             
             socket.on('connect', function() {
-                addToTerminal('Connexion WebSocket établie', 'success');
-                updateConnectionStatus(true);
+                addToTerminal('WebSocket connected', 'success');
                 loadSystemStatus();
             });
             
             socket.on('disconnect', function() {
-                addToTerminal('Connexion WebSocket fermée', 'warning');
-                updateConnectionStatus(false);
+                addToTerminal('WebSocket disconnected', 'warning');
+            });
+            
+            socket.on('agent_connected', function(data) {
+                addToTerminal(`Agent connected: ${data.name} (${data.ip})`, 'success');
+                updateAgentList();
+            });
+            
+            socket.on('agent_disconnected', function(data) {
+                addToTerminal(`Agent disconnected: ${data.name}`, 'warning');
+                updateAgentList();
+            });
+            
+            socket.on('route_added', function(data) {
+                addToTerminal(`Route added: ${data.network}`, 'info');
+                updateRoutes();
             });
             
             socket.on('terminal_output', function(data) {
-                addToTerminal(`[${data.tool}] ${data.output}`, 'info');
-            });
-            
-            socket.on('tool_started', function(data) {
-                addToTerminal(`${data.tool} démarré - ${data.description}`, 'success');
-                updateToolStatus(data.tool, 'running');
-            });
-            
-            socket.on('tool_stopped', function(data) {
-                addToTerminal(`${data.tool} arrêté`, 'warning');
-                updateToolStatus(data.tool, 'offline');
-            });
-            
-            socket.on('process_finished', function(data) {
-                addToTerminal(`${data.tool} terminé`, 'info');
-                updateToolStatus(data.tool, 'offline');
-            });
-            
-            socket.on('services_status_changed', function(data) {
-                addToTerminal(`Services: ${data.services ? 'Démarrés' : 'Arrêtés'}`, data.services ? 'success' : 'warning');
-                updateSystemStatus();
+                addToTerminal(data.output, 'info');
             });
         }
 
-        // Fonction pour ajouter du texte au terminal
+        // Add to terminal
         function addToTerminal(text, type = 'info') {
             const line = document.createElement('div');
             line.className = `terminal-line ${type}`;
-            
             const timestamp = new Date().toLocaleTimeString();
-            let prefix = '';
-            
-            switch(type) {
-                case 'success': prefix = '[OK]'; break;
-                case 'error': prefix = '[ERR]'; break;
-                case 'warning': prefix = '[WARN]'; break;
-                default: prefix = '[INFO]'; break;
-            }
-            
-            line.innerHTML = `<span style="opacity: 0.6">${timestamp}</span> ${prefix} ${text}`;
+            line.innerHTML = `<span style="opacity: 0.6">${timestamp}</span> ${text}`;
             terminalElement.appendChild(line);
             terminalElement.scrollTop = terminalElement.scrollHeight;
             
-            // Limiter le nombre de lignes
             while (terminalElement.children.length > 100) {
                 terminalElement.removeChild(terminalElement.firstChild);
             }
         }
 
-        // Fonction pour afficher une notification
+        // Show notification
         function showNotification(message, type = 'info', duration = 4000) {
             notificationElement.textContent = message;
             notificationElement.className = `notification show ${type}`;
-            
             setTimeout(() => {
                 notificationElement.classList.remove('show');
             }, duration);
         }
 
-        // Mise à jour du statut de connexion
-        function updateConnectionStatus(connected) {
-            const indicator = document.getElementById('connection-status');
-            if (connected) {
-                indicator.className = 'status-indicator online';
-            } else {
-                indicator.className = 'status-indicator offline';
-            }
-        }
-
-        // Chargement du statut système
+        // Load system status
         async function loadSystemStatus() {
             try {
                 const response = await fetch(`${API_BASE}/api/status`);
                 const data = await response.json();
                 
                 if (data.success) {
-                    // Mise à jour des statuts de services
-                    updateServiceStatus('wifi-status', data.services.hostapd);
-                    updateServiceStatus('system-status', data.services.ssh);
+                    // Update proxy status
+                    const proxyStatus = document.getElementById('proxy-status');
+                    if (data.services.ligolo_proxy) {
+                        proxyStatus.innerHTML = '<span class="status-online">ONLINE</span>';
+                    } else {
+                        proxyStatus.innerHTML = '<span class="status-offline">OFFLINE</span>';
+                    }
                     
-                    // Mise à jour des informations système
-                    document.getElementById('uptime').textContent = data.system.uptime;
+                    // Update AP status
+                    const apStatus = document.getElementById('ap-status');
+                    if (data.services.hostapd) {
+                        apStatus.innerHTML = '<span class="status-online">ONLINE</span>';
+                    } else {
+                        apStatus.innerHTML = '<span class="status-offline">OFFLINE</span>';
+                    }
+                    
+                    // Update system info
                     document.getElementById('cpu-usage').textContent = `${Math.round(data.system.cpu_percent)}%`;
                     document.getElementById('memory-usage').textContent = `${Math.round(data.system.memory_percent)}%`;
+                    document.getElementById('hostname').textContent = data.system.hostname;
+                    document.getElementById('uptime').textContent = data.system.uptime;
+                    document.getElementById('ip-address').textContent = Object.values(data.system.network_interfaces)[0]?.ip || '--';
                     
-                    // Mise à jour des interfaces réseau
-                    const networkInfo = Object.entries(data.system.network_interfaces)
-                        .map(([iface, info]) => `${iface}: ${info.ip}`)
-                        .join(', ');
-                    document.getElementById('network-status').textContent = networkInfo || 'Non configuré';
+                    // Update agent count
+                    document.getElementById('agent-count').textContent = data.agents?.length || 0;
+                    document.getElementById('route-count').textContent = data.routes?.length || 0;
                     
-                    // Mise à jour des outils en cours
-                    runningTools.clear();
-                    Object.keys(data.running_tools).forEach(tool => {
-                        runningTools.add(tool);
-                        updateToolStatus(tool, 'running');
-                    });
+                    updateAgentList(data.agents);
+                    updateRoutes(data.routes);
                 }
             } catch (error) {
-                addToTerminal(`Erreur de chargement du statut: ${error.message}`, 'error');
+                addToTerminal(`Error loading status: ${error.message}`, 'error');
             }
         }
 
-        // Mise à jour du statut des services
-        function updateServiceStatus(elementId, status) {
-            const element = document.getElementById(elementId);
-            if (status) {
-                element.textContent = 'EN LIGNE';
-                element.className = 'status-value status-online';
-            } else {
-                element.textContent = 'HORS LIGNE';
-                element.className = 'status-value status-offline';
-            }
-        }
-
-        // Dialog pour les outils avec arguments
-        function showToolDialog(tool, description) {
-            document.getElementById('dialog-title').textContent = `${description} (${tool})`;
-            document.getElementById('tool-args').value = '';
-            document.getElementById('tool-dialog').style.display = 'block';
-            document.getElementById('dialog-overlay').style.display = 'block';
-            currentTool = { name: tool, description: description };
-            document.getElementById('tool-args').focus();
-        }
-
-        function closeToolDialog() {
-            document.getElementById('tool-dialog').style.display = 'none';
-            document.getElementById('dialog-overlay').style.display = 'none';
-            currentTool = null;
-        }
-
-        function runToolWithArgs() {
-            if (currentTool) {
-                const args = document.getElementById('tool-args').value.trim();
-                runTool(currentTool.name, currentTool.description, args);
-                closeToolDialog();
-            }
-        }
-
-        // Fonction pour exécuter un outil
-        async function runTool(tool, description, args = '') {
-            if (runningTools.has(tool)) {
-                // Si l'outil est en cours, l'arrêter
-                await stopTool(tool);
+        // Update agent list
+        function updateAgentList(agents) {
+            const agentList = document.getElementById('agent-list');
+            
+            if (!agents || agents.length === 0) {
+                agentList.innerHTML = '<li style="text-align: center; opacity: 0.5;">No agents connected</li>';
                 return;
             }
             
-            try {
-                addToTerminal(`Lancement de ${tool} - ${description}...`, 'info');
-                showNotification(`Démarrage de ${tool}...`, 'info');
-                
-                const response = await fetch(`${API_BASE}/api/tools/${tool}/start`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ args: args })
-                });
-                
-                const data = await response.json();
-                
-                if (data.success) {
-                    runningTools.add(tool);
-                    updateToolStatus(tool, 'running');
-                    addToTerminal(`${tool} démarré avec succès`, 'success');
-                    showNotification(`${tool} en cours d'exécution`, 'success');
-                } else {
-                    addToTerminal(`Erreur: ${data.message}`, 'error');
-                    showNotification(`Erreur: ${data.message}`, 'error');
-                }
-                
-            } catch (error) {
-                addToTerminal(`Erreur de connexion: ${error.message}`, 'error');
-                showNotification('Erreur de connexion à l\'API', 'error');
-            }
+            agentList.innerHTML = agents.map(agent => `
+                <li class="agent-item">
+                    <div class="agent-info">
+                        <span class="agent-name">${agent.name}</span>
+                        <div class="agent-status">
+                            <div class="status-dot"></div>
+                            <span>Connected</span>
+                        </div>
+                    </div>
+                    <div style="font-size: 0.85rem; opacity: 0.7;">
+                        IP: ${agent.ip} | Networks: ${agent.networks?.join(', ') || 'None'}
+                    </div>
+                </li>
+            `).join('');
         }
 
-        // Fonction pour arrêter un outil
-        async function stopTool(tool) {
-            try {
-                const response = await fetch(`${API_BASE}/api/tools/${tool}/stop`, {
-                    method: 'POST'
-                });
-                
-                const data = await response.json();
-                
-                if (data.success) {
-                    runningTools.delete(tool);
-                    updateToolStatus(tool, 'offline');
-                    addToTerminal(`${tool} arrêté`, 'warning');
-                    showNotification(`${tool} arrêté`, 'warning');
-                } else {
-                    addToTerminal(`Erreur d'arrêt: ${data.message}`, 'error');
-                }
-                
-            } catch (error) {
-                addToTerminal(`Erreur: ${error.message}`, 'error');
-            }
-        }
-
-        // Mise à jour du statut des outils
-        function updateToolStatus(tool, status) {
-            const categoryMap = {
-                'nmap': 'recon', 'masscan': 'recon', 'kismet': 'recon', 'airodump': 'recon',
-                'wifite': 'wifi', 'aircrack': 'wifi', 'reaver': 'wifi', 'bully': 'wifi',
-                'nikto': 'web', 'gobuster': 'web', 'sqlmap': 'web', 'beef': 'web',
-                'hydra': 'password', 'john': 'password', 'hashcat': 'password', 'medusa': 'password',
-                'msfconsole': 'exploit',
-                'wireshark': 'network', 'ettercap': 'network', 'bettercap': 'network', 'tcpdump': 'network'
-            };
+        // Update routes
+        function updateRoutes(routes) {
+            const routesList = document.getElementById('routes-list');
             
-            const category = categoryMap[tool];
-            if (category) {
-                const indicator = document.getElementById(`status-${category}`);
-                const info = document.getElementById(`${category}-info`);
-                
-                if (indicator && info) {
-                    indicator.className = `status-indicator ${status}`;
-                    info.textContent = status === 'running' ? `${tool} actif` : 'Inactif';
-                }
+            if (!routes || routes.length === 0) {
+                routesList.innerHTML = '<li style="text-align: center; opacity: 0.5;">No routes configured</li>';
+                return;
             }
             
-            // Mise à jour des boutons
-            const buttons = document.querySelectorAll('.btn');
-            buttons.forEach(btn => {
-                if (btn.textContent.toLowerCase().includes(tool.toLowerCase())) {
-                    if (status === 'running') {
-                        btn.classList.add('running');
-                        btn.textContent = btn.textContent.replace(tool, `${tool} [STOP]`);
-                    } else {
-                        btn.classList.remove('running');
-                        btn.textContent = btn.textContent.replace(` [STOP]`, '');
-                    }
-                }
-            });
+            routesList.innerHTML = routes.map(route => `
+                <li class="route-item">
+                    ${route.network} via ${route.interface}
+                </li>
+            `).join('');
         }
 
-        // Contrôles système
+        // Control functions
         async function startServices() {
             try {
-                addToTerminal('Démarrage des services système...', 'info');
-                showNotification('Démarrage des services...', 'info');
+                addToTerminal('Starting all services...', 'info');
+                showNotification('Starting services...', 'info');
                 
                 const response = await fetch(`${API_BASE}/api/services/start`, {
                     method: 'POST'
@@ -882,27 +607,26 @@
                 const data = await response.json();
                 
                 if (data.success) {
-                    addToTerminal('Services démarrés avec succès', 'success');
-                    showNotification('Services démarrés', 'success');
+                    addToTerminal('Services started successfully', 'success');
+                    showNotification('Services started', 'success');
                 } else {
-                    addToTerminal(`Erreur: ${JSON.stringify(data.results)}`, 'error');
-                    showNotification('Erreur de démarrage des services', 'error');
+                    addToTerminal(`Error: ${data.message}`, 'error');
+                    showNotification('Error starting services', 'error');
                 }
                 
                 setTimeout(loadSystemStatus, 2000);
-                
             } catch (error) {
-                addToTerminal(`Erreur: ${error.message}`, 'error');
-                showNotification('Erreur de connexion', 'error');
+                addToTerminal(`Error: ${error.message}`, 'error');
+                showNotification('Connection error', 'error');
             }
         }
 
         async function stopServices() {
-            if (!confirm('Êtes-vous sûr de vouloir arrêter les services ?')) return;
+            if (!confirm('Stop all services?')) return;
             
             try {
-                addToTerminal('Arrêt des services système...', 'warning');
-                showNotification('Arrêt des services...', 'warning');
+                addToTerminal('Stopping all services...', 'warning');
+                showNotification('Stopping services...', 'warning');
                 
                 const response = await fetch(`${API_BASE}/api/services/stop`, {
                     method: 'POST'
@@ -911,23 +635,20 @@
                 const data = await response.json();
                 
                 if (data.success) {
-                    addToTerminal('Services arrêtés', 'warning');
-                    showNotification('Services arrêtés', 'warning');
-                } else {
-                    addToTerminal(`Erreur: ${JSON.stringify(data.results)}`, 'error');
+                    addToTerminal('Services stopped', 'warning');
+                    showNotification('Services stopped', 'warning');
                 }
                 
                 setTimeout(loadSystemStatus, 2000);
-                
             } catch (error) {
-                addToTerminal(`Erreur: ${error.message}`, 'error');
+                addToTerminal(`Error: ${error.message}`, 'error');
             }
         }
 
         async function restartServices() {
             try {
-                addToTerminal('Redémarrage des services...', 'info');
-                showNotification('Redémarrage en cours...', 'info');
+                addToTerminal('Restarting services...', 'info');
+                showNotification('Restarting...', 'info');
                 
                 const response = await fetch(`${API_BASE}/api/services/restart`, {
                     method: 'POST'
@@ -936,39 +657,56 @@
                 const data = await response.json();
                 
                 if (data.success) {
-                    addToTerminal('Services redémarrés avec succès', 'success');
-                    showNotification('Redémarrage terminé', 'success');
-                } else {
-                    addToTerminal(`Erreur: ${JSON.stringify(data.results)}`, 'error');
+                    addToTerminal('Services restarted', 'success');
+                    showNotification('Restart complete', 'success');
                 }
                 
                 setTimeout(loadSystemStatus, 3000);
-                
             } catch (error) {
-                addToTerminal(`Erreur: ${error.message}`, 'error');
+                addToTerminal(`Error: ${error.message}`, 'error');
             }
         }
 
-        async function updateSystem() {
+        async function restartProxy() {
             try {
-                addToTerminal('Lancement de la mise à jour système...', 'info');
-                showNotification('Mise à jour en cours...', 'info');
+                addToTerminal('Restarting Ligolo proxy...', 'info');
                 
-                const response = await fetch(`${API_BASE}/api/system/update`, {
+                const response = await fetch(`${API_BASE}/api/ligolo/restart`, {
                     method: 'POST'
                 });
                 
                 const data = await response.json();
                 
                 if (data.success) {
-                    addToTerminal('Mise à jour démarrée', 'success');
-                    showNotification('Mise à jour en cours d\'exécution', 'success');
-                } else {
-                    addToTerminal(`Erreur: ${data.message}`, 'error');
+                    addToTerminal('Proxy restarted', 'success');
+                    showNotification('Proxy restarted', 'success');
                 }
                 
+                setTimeout(loadSystemStatus, 2000);
             } catch (error) {
-                addToTerminal(`Erreur: ${error.message}`, 'error');
+                addToTerminal(`Error: ${error.message}`, 'error');
+            }
+        }
+
+        async function updateLigolo() {
+            if (!confirm('Update Ligolo-ng to latest version?')) return;
+            
+            try {
+                addToTerminal('Starting Ligolo-ng update...', 'info');
+                showNotification('Updating Ligolo-ng...', 'info');
+                
+                const response = await fetch(`${API_BASE}/api/ligolo/update`, {
+                    method: 'POST'
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    addToTerminal('Update started', 'success');
+                    showNotification('Update in progress', 'success');
+                }
+            } catch (error) {
+                addToTerminal(`Error: ${error.message}`, 'error');
             }
         }
 
@@ -978,73 +716,70 @@
                 const data = await response.json();
                 
                 if (data.success) {
-                    addToTerminal('=== LOGS SYSTÈME ===', 'info');
+                    addToTerminal('=== RECENT LOGS ===', 'info');
                     data.logs.slice(-20).forEach(log => {
-                        addToTerminal(`[${log.service}] ${log.line}`, 'info');
+                        addToTerminal(log, 'info');
                     });
-                    addToTerminal('=== FIN LOGS ===', 'info');
-                } else {
-                    addToTerminal(`Erreur de chargement des logs: ${data.error}`, 'error');
+                    addToTerminal('=== END LOGS ===', 'info');
                 }
-                
             } catch (error) {
-                addToTerminal(`Erreur: ${error.message}`, 'error');
+                addToTerminal(`Error: ${error.message}`, 'error');
+            }
+        }
+
+        async function showNetworkInfo() {
+            try {
+                const response = await fetch(`${API_BASE}/api/network/info`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    addToTerminal('=== NETWORK INFORMATION ===', 'info');
+                    Object.entries(data.interfaces).forEach(([iface, info]) => {
+                        addToTerminal(`${iface}: ${info.ip} (${info.status})`, 'info');
+                    });
+                    addToTerminal('=== END NETWORK INFO ===', 'info');
+                }
+            } catch (error) {
+                addToTerminal(`Error: ${error.message}`, 'error');
+            }
+        }
+
+        async function exportConfig() {
+            try {
+                const response = await fetch(`${API_BASE}/api/config/export`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    const blob = new Blob([JSON.stringify(data.config, null, 2)], {
+                        type: 'application/json'
+                    });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'rasppunzel-config.json';
+                    a.click();
+                    showNotification('Configuration exported', 'success');
+                }
+            } catch (error) {
+                addToTerminal(`Error: ${error.message}`, 'error');
             }
         }
 
         function clearTerminal() {
-            terminalElement.innerHTML = '<div class="terminal-line info">Terminal effacé</div>';
+            terminalElement.innerHTML = '<div class="terminal-line info">Terminal cleared</div>';
         }
 
-        async function stopAllTools() {
-            if (!confirm('Arrêter tous les outils en cours ?')) return;
-            
-            const promises = Array.from(runningTools).map(tool => stopTool(tool));
-            await Promise.all(promises);
-            
-            addToTerminal('Tous les outils arrêtés', 'warning');
-            showNotification('Tous les outils arrêtés', 'warning');
-        }
-
-        // Fonction pour mettre à jour le statut système
-        function updateSystemStatus() {
-            setTimeout(loadSystemStatus, 1000);
-        }
-
-        // Initialisation au chargement de la page
+        // Initialize
         document.addEventListener('DOMContentLoaded', function() {
             initializeSocket();
-            
-            // Mise à jour périodique du statut
-            setInterval(loadSystemStatus, 30000); // Toutes les 30 secondes
-            
-            // Gestion des touches du dialogue
-            document.getElementById('tool-args').addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
-                    runToolWithArgs();
-                } else if (e.key === 'Escape') {
-                    closeToolDialog();
-                }
-            });
+            setInterval(loadSystemStatus, 30000); // Update every 30s
         });
 
-        // Gestion des raccourcis clavier
+        // Keyboard shortcuts
         document.addEventListener('keydown', function(e) {
-            // Ctrl+L pour effacer le terminal
             if (e.ctrlKey && e.key === 'l') {
                 e.preventDefault();
                 clearTerminal();
-            }
-            
-            // Ctrl+R pour redémarrer les services
-            if (e.ctrlKey && e.key === 'r') {
-                e.preventDefault();
-                restartServices();
-            }
-            
-            // Escape pour fermer les dialogs
-            if (e.key === 'Escape') {
-                closeToolDialog();
             }
         });
     </script>

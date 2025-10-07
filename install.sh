@@ -1,747 +1,354 @@
 #!/bin/bash
 
-# =============================================================================
-# RaspPunzel - Installation Script v1.0
-# Implant RedTeam portable pour Raspberry Pi
-# =============================================================================
+# =================================================================================================
+# RaspPunzel - Lightweight Network Pivot with Ligolo-ng
+# =================================================================================================
+# Main Installation Script
+# =================================================================================================
 
-set -e
+set -e  # Exit on error
 
-# Couleurs pour l'affichage
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
-PURPLE='\033[0;35m'
-CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
-# Configuration par défaut
-DEFAULT_ADMIN_USER="admin"
-DEFAULT_ADMIN_PASS="RedTeam2024!"
-DEFAULT_WIFI_SSID="MAINTENANCE_WIFI"
-DEFAULT_WIFI_PASS="SecureP@ss123!"
-DEFAULT_AP_IP="192.168.10.1"
-DEFAULT_WEB_PORT="8080"
+# Project paths
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPTS_DIR="${PROJECT_ROOT}/scripts"
+WEB_DIR="${PROJECT_ROOT}/web"
+CONFIG_DIR="${PROJECT_ROOT}/config"
 
-# Variables globales pour la configuration
-ADMIN_USER=""
-ADMIN_PASS=""
-WIFI_SSID=""
-WIFI_PASS=""
-AP_IP=""
-WEB_PORT=""
+# Installation log
+INSTALL_LOG="/var/log/rasppunzel-install.log"
 
-# Fonction d'affichage améliorées
+# Banner
 print_banner() {
-    echo -e "${PURPLE}"
-    cat << 'EOF'
-╔══════════════════════════════════════════════════════════════╗
-║                        🚀 RaspPunzel 🚀                      ║
-║                                                              ║
-║            Implant RedTeam portable pour Raspberry Pi       ║
-║                     Installation v1.0                       ║
-╚══════════════════════════════════════════════════════════════╝
-by @bl4ckarch
-EOF
+    clear
+    echo -e "${GREEN}"
+    echo "╔═══════════════════════════════════════════════════════════════╗"
+    echo "║                                                               ║"
+    echo "║              🚀 RaspPunzel Installation 🚀                    ║"
+    echo "║                                                               ║"
+    echo "║          Lightweight Network Pivot with Ligolo-ng            ║"
+    echo "║                                                               ║"
+    echo "╚═══════════════════════════════════════════════════════════════╝"
     echo -e "${NC}"
 }
 
-print_status() {
-    echo -e "${BLUE}[INFO]${NC} $1"
+# Logging function
+log() {
+    local level=$1
+    shift
+    local message="$@"
+    local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+    echo "[${timestamp}] [${level}] ${message}" | tee -a "${INSTALL_LOG}"
 }
 
-print_success() {
-    echo -e "${GREEN}[SUCCESS]${NC} $1"
-}
-
-print_warning() {
-    echo -e "${YELLOW}[WARNING]${NC} $1"
-}
-
-print_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
-}
-
-print_step() {
-    echo -e "${CYAN}[STEP]${NC} $1"
-}
-
-# Vérifications préliminaires
-check_prerequisites() {
-    print_step "Vérification des prérequis..."
-    
-    # Vérification des privilèges root
+# Check if running as root
+check_root() {
     if [[ $EUID -ne 0 ]]; then
-        print_error "Ce script doit être exécuté en tant que root"
-        echo "Utilisez: sudo $0"
+        echo -e "${RED}[!] This script must be run as root${NC}" 
         exit 1
     fi
-    
-    # Vérification de la plateforme
-    if ! grep -q "Raspberry Pi" /proc/cpuinfo 2>/dev/null; then
-        print_warning "Système non détecté comme Raspberry Pi"
-        read -p "Continuer quand même? (y/N): " -n 1 -r
-        echo
-        [[ ! $REPLY =~ ^[Yy]$ ]] && exit 1
-    fi
-    
-    # Vérification de l'espace disque (minimum 4GB libre)
-    local free_space=$(df / | awk 'NR==2 {print $4}')
-    if [ $free_space -lt 4194304 ]; then  # 4GB en KB
-        print_warning "Espace disque faible (moins de 4GB libre)"
-        print_status "Espace libre: $(( free_space / 1024 / 1024 ))GB"
-    fi
-    
-    # Vérification de la connexion Internet
-    if ! ping -c 1 8.8.8.8 >/dev/null 2>&1; then
-        print_error "Connexion Internet requise pour l'installation"
-        exit 1
-    fi
-    
-    print_success "Prérequis validés"
 }
 
-# Installation des packages de base nécessaires
-install_base_packages() {
-    print_step "Installation des packages système de base..."
+# Check system requirements
+check_requirements() {
+    log "INFO" "Checking system requirements..."
     
-    # Mise à jour de la liste des packages
-    apt-get update -qq || {
-        print_error "Impossible de mettre à jour la liste des packages"
-        return 1
+    # Check OS
+    if [[ ! -f /etc/os-release ]]; then
+        log "ERROR" "Cannot determine OS version"
+        exit 1
+    fi
+    
+    source /etc/os-release
+    log "INFO" "Detected OS: ${PRETTY_NAME}"
+    
+    # Check architecture
+    ARCH=$(uname -m)
+    log "INFO" "Architecture: ${ARCH}"
+    
+    if [[ "${ARCH}" != "aarch64" && "${ARCH}" != "armv7l" && "${ARCH}" != "x86_64" ]]; then
+        log "ERROR" "Unsupported architecture: ${ARCH}"
+        exit 1
+    fi
+    
+    # Check available disk space (minimum 2GB)
+    AVAILABLE_SPACE=$(df / | tail -1 | awk '{print $4}')
+    if [[ ${AVAILABLE_SPACE} -lt 2097152 ]]; then
+        log "WARN" "Low disk space detected. At least 2GB recommended."
+    fi
+    
+    log "INFO" "System requirements check passed"
+}
+
+# Load configuration
+load_config() {
+    log "INFO" "Loading configuration..."
+    
+    if [[ -f "${PROJECT_ROOT}/config.sh" ]]; then
+        source "${PROJECT_ROOT}/config.sh"
+        log "INFO" "Configuration loaded from config.sh"
+    else
+        log "WARN" "No config.sh found, using defaults"
+    fi
+}
+
+# Installation menu
+show_menu() {
+    echo -e "${BLUE}"
+    echo "════════════════════════════════════════════════════════════════"
+    echo "  Installation Options"
+    echo "════════════════════════════════════════════════════════════════"
+    echo -e "${NC}"
+    echo "  1) Full Installation (Recommended)"
+    echo "     - Ligolo-ng proxy"
+    echo "     - Admin WiFi AP"
+    echo "     - Web Dashboard"
+    echo "     - All network services"
+    echo ""
+    echo "  2) Minimal Installation"
+    echo "     - Ligolo-ng proxy only"
+    echo "     - SSH access"
+    echo "     - No web dashboard"
+    echo ""
+    echo "  3) Custom Installation"
+    echo "     - Choose components individually"
+    echo ""
+    echo "  4) Exit"
+    echo ""
+    echo -e "${BLUE}════════════════════════════════════════════════════════════════${NC}"
+    echo -n "Select option [1-4]: "
+}
+
+# Full installation
+full_install() {
+    log "INFO" "Starting full installation..."
+    
+    # Step 1: Install Ligolo-ng
+    echo -e "\n${YELLOW}[~] Installing Ligolo-ng...${NC}"
+    bash "${SCRIPTS_DIR}/install-ligolo.sh" || {
+        log "ERROR" "Ligolo-ng installation failed"
+        exit 1
     }
     
-    # Packages essentiels pour le fonctionnement de RaspPunzel
-    local base_packages=(
-        "hostapd"
-        "dnsmasq" 
-        "nginx"
-        "openssh-server"
-        "python3"
-        "python3-pip"
-        "curl"
-        "wget"
-        "systemd"
-        "iproute2"
-        "iptables"
-    )
+    # Step 2: Setup network
+    echo -e "\n${YELLOW}[~] Configuring network...${NC}"
+    bash "${SCRIPTS_DIR}/setup-network.sh" || {
+        log "ERROR" "Network setup failed"
+        exit 1
+    }
     
-    print_status "Installation des packages essentiels..."
-    for package in "${base_packages[@]}"; do
-        if ! dpkg -l | grep -q "^ii  $package "; then
-            print_status "Installation de $package..."
-            if apt-get install -y -qq "$package"; then
-                print_success "$package installé"
-            else
-                print_warning "Échec installation $package (non critique)"
-            fi
-        else
-            print_status "$package déjà installé"
-        fi
-    done
+    # Step 3: Install web dashboard
+    echo -e "\n${YELLOW}[~] Installing web dashboard...${NC}"
+    bash "${SCRIPTS_DIR}/install-web-dashboard.sh" || {
+        log "ERROR" "Web dashboard installation failed"
+        exit 1
+    }
     
-    # Vérification que les services critiques peuvent démarrer
-    print_status "Vérification des services..."
+    # Step 4: Configure services
+    echo -e "\n${YELLOW}[~] Configuring services...${NC}"
+    bash "${SCRIPTS_DIR}/service-manager.sh" setup || {
+        log "ERROR" "Service configuration failed"
+        exit 1
+    }
     
-    # Arrêt des services pour éviter les conflits pendant la configuration
-    systemctl stop hostapd 2>/dev/null || true
-    systemctl stop dnsmasq 2>/dev/null || true
-    systemctl stop nginx 2>/dev/null || true
-    
-    print_success "Packages de base installés et services préparés"
+    log "INFO" "Full installation completed successfully"
 }
 
-# Fonction à appeler AVANT apply_configuration() dans main()
-check_and_create_directories() {
-    print_step "Vérification de la structure des répertoires..."
+# Minimal installation
+minimal_install() {
+    log "INFO" "Starting minimal installation..."
     
-    # Vérification que le script est lancé depuis le bon répertoire
-    if [ ! -d "config" ]; then
-        print_error "Répertoire 'config' non trouvé. Lancez le script depuis le répertoire d'installation."
-        return 1
-    fi
+    # Only install Ligolo-ng
+    echo -e "\n${YELLOW}[~] Installing Ligolo-ng...${NC}"
+    bash "${SCRIPTS_DIR}/install-ligolo.sh" minimal || {
+        log "ERROR" "Ligolo-ng installation failed"
+        exit 1
+    }
     
-    # Création de tous les répertoires nécessaires
-    local directories=(
-        "/opt/rasppunzel/web"
-        "/opt/rasppunzel/config"
-        "/opt/rasppunzel-scripts"
-        "/var/log/rasppunzel"
-        "/etc/hostapd"
-        "/etc/nginx/sites-available"
-        "/etc/nginx/sites-enabled"
-    )
-    
-    for dir in "${directories[@]}"; do
-        if ! mkdir -p "$dir"; then
-            print_error "Impossible de créer le répertoire $dir"
-            return 1
-        fi
-    done
-    
-    # Vérification des templates requis
-    local required_templates=(
-        "config/network/hostapd.conf.template"
-        "config/network/dnsmasq.conf.template"
-        "config/network/interfaces.template"
-        "config/services/nginx-rasppunzel.conf"
-    )
-    
-    local missing_templates=()
-    for template in "${required_templates[@]}"; do
-        if [ ! -f "$template" ]; then
-            missing_templates+=("$template")
-        fi
-    done
-    
-    if [ ${#missing_templates[@]} -gt 0 ]; then
-        print_warning "Templates manquants détectés:"
-        for missing in "${missing_templates[@]}"; do
-            echo "  - $missing"
-        done
-        print_warning "Installation continuera mais certaines fonctionnalités pourraient ne pas être disponibles"
-    fi
-    
-    print_success "Structure des répertoires vérifiée"
-}
-# Configuration interactive avec validation
-configure_settings() {
-    print_step "Configuration interactive de RaspPunzel"
-    echo
-    
-    # Configuration utilisateur admin
-    while true; do
-        read -p "Nom d'utilisateur admin [$DEFAULT_ADMIN_USER]: " ADMIN_USER
-        ADMIN_USER=${ADMIN_USER:-$DEFAULT_ADMIN_USER}
-        if [[ $ADMIN_USER =~ ^[a-zA-Z0-9_-]{3,20}$ ]]; then
-            break
-        else
-            print_error "Nom d'utilisateur invalide (3-20 caractères, lettres/chiffres/_/- uniquement)"
-        fi
-    done
-    
-    # Configuration mot de passe admin avec validation
-    while true; do
-        echo -n "Mot de passe admin (8+ caractères) [$DEFAULT_ADMIN_PASS]: "
-        read -s ADMIN_PASS
-        ADMIN_PASS=${ADMIN_PASS:-$DEFAULT_ADMIN_PASS}
-        echo
-        if [ ${#ADMIN_PASS} -ge 8 ]; then
-            echo -n "Confirmer le mot de passe: "
-            read -s ADMIN_PASS_CONFIRM
-            echo
-            if [ "$ADMIN_PASS" = "$ADMIN_PASS_CONFIRM" ]; then
-                break
-            else
-                print_error "Les mots de passe ne correspondent pas"
-            fi
-        else
-            print_error "Mot de passe trop court (minimum 8 caractères)"
-        fi
-    done
-    
-    # Configuration WiFi SSID
-    while true; do
-        read -p "SSID du WiFi caché [$DEFAULT_WIFI_SSID]: " WIFI_SSID
-        WIFI_SSID=${WIFI_SSID:-$DEFAULT_WIFI_SSID}
-        if [ ${#WIFI_SSID} -le 32 ] && [ ${#WIFI_SSID} -ge 1 ]; then
-            break
-        else
-            print_error "SSID invalide (1-32 caractères)"
-        fi
-    done
-    
-    # Configuration mot de passe WiFi
-    while true; do
-        echo -n "Mot de passe WiFi (8+ caractères) [$DEFAULT_WIFI_PASS]: "
-        read -s WIFI_PASS
-        WIFI_PASS=${WIFI_PASS:-$DEFAULT_WIFI_PASS}
-        echo
-        if [ ${#WIFI_PASS} -ge 8 ] && [ ${#WIFI_PASS} -le 63 ]; then
-            break
-        else
-            print_error "Mot de passe WiFi invalide (8-63 caractères)"
-        fi
-    done
-    
-    # Configuration IP avec validation
-    while true; do
-        read -p "IP du point d'accès [$DEFAULT_AP_IP]: " AP_IP
-        AP_IP=${AP_IP:-$DEFAULT_AP_IP}
-        if [[ $AP_IP =~ ^192\.168\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
-            break
-        else
-            print_error "IP invalide (format: 192.168.x.x)"
-        fi
-    done
-    
-    # Configuration port web
-    while true; do
-        read -p "Port interface web [$DEFAULT_WEB_PORT]: " WEB_PORT
-        WEB_PORT=${WEB_PORT:-$DEFAULT_WEB_PORT}
-        if [[ $WEB_PORT =~ ^[0-9]+$ ]] && [ $WEB_PORT -ge 1024 ] && [ $WEB_PORT -le 65535 ]; then
-            break
-        else
-            print_error "Port invalide (1024-65535)"
-        fi
-    done
-    
-    echo
-    print_success "Configuration enregistrée"
-    
-    # Résumé de la configuration
-    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo -e "${YELLOW}Résumé de la configuration:${NC}"
-    echo "   Utilisateur admin: $ADMIN_USER"
-    echo "   SSID WiFi: $WIFI_SSID (caché)"
-    echo "   IP point d'accès: $AP_IP"
-    echo "   Port web: $WEB_PORT"
-    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo
-    
-    read -p "Confirmer la configuration? (Y/n): " -n 1 -r
-    echo
-    if [[ $REPLY =~ ^[Nn]$ ]]; then
-        print_warning "Configuration annulée"
-        exit 0
-    fi
+    log "INFO" "Minimal installation completed successfully"
 }
 
-# Application de la configuration aux templates
-# Application de la configuration aux templates
-apply_configuration() {
-    print_step "Application de la configuration..."
+# Custom installation
+custom_install() {
+    log "INFO" "Starting custom installation..."
     
-    # Création des répertoires nécessaires pour RaspPunzel
-    mkdir -p /opt/rasppunzel/web
-    mkdir -p /opt/rasppunzel/config
-    mkdir -p /opt/rasppunzel-scripts
-    mkdir -p /var/log/rasppunzel
+    echo -e "\n${BLUE}Select components to install:${NC}"
+    echo ""
     
-    # Création des répertoires système nécessaires
-    mkdir -p /etc/hostapd
-    mkdir -p /etc/nginx/sites-available
-    mkdir -p /etc/nginx/sites-enabled
+    read -p "Install Ligolo-ng? [Y/n]: " install_ligolo
+    read -p "Install Admin WiFi AP? [Y/n]: " install_ap
+    read -p "Install Web Dashboard? [Y/n]: " install_web
     
-    # Application de la configuration aux templates réseau
-    if [ -f "config/network/hostapd.conf.template" ]; then
-        sed "s/MAINTENANCE_WIFI/$WIFI_SSID/g; s/SecureP@ss123!/$WIFI_PASS/g" \
-            config/network/hostapd.conf.template > /etc/hostapd/hostapd.conf
-        # Vérification que le fichier a été créé
-        if [ -f "/etc/hostapd/hostapd.conf" ]; then
-            print_success "Configuration hostapd appliquée"
-        else
-            print_error "Échec création fichier hostapd.conf"
-            return 1
-        fi
-    else
-        print_warning "Template hostapd.conf.template non trouvé"
+    # Install Ligolo-ng
+    if [[ ! "${install_ligolo}" =~ ^[Nn]$ ]]; then
+        echo -e "\n${YELLOW}[~] Installing Ligolo-ng...${NC}"
+        bash "${SCRIPTS_DIR}/install-ligolo.sh" || exit 1
     fi
     
-    if [ -f "config/network/dnsmasq.conf.template" ]; then
-        # Sauvegarde de la configuration originale si elle existe
-        if [ -f "/etc/dnsmasq.conf" ]; then
-            cp /etc/dnsmasq.conf /etc/dnsmasq.conf.backup
-        fi
-        sed "s/192\.168\.10\.1/$AP_IP/g" \
-            config/network/dnsmasq.conf.template > /etc/dnsmasq.conf
-        # Vérification que le fichier a été créé
-        if [ -f "/etc/dnsmasq.conf" ]; then
-            print_success "Configuration dnsmasq appliquée"
-        else
-            print_error "Échec création fichier dnsmasq.conf"
-            return 1
-        fi
-    else
-        print_warning "Template dnsmasq.conf.template non trouvé"
+    # Install AP
+    if [[ ! "${install_ap}" =~ ^[Nn]$ ]]; then
+        echo -e "\n${YELLOW}[~] Setting up Admin AP...${NC}"
+        bash "${SCRIPTS_DIR}/setup-network.sh" ap-only || exit 1
     fi
     
-    if [ -f "config/network/interfaces.template" ]; then
-        # Sauvegarde de la configuration originale
-        if [ -f "/etc/network/interfaces" ]; then
-            cp /etc/network/interfaces /etc/network/interfaces.backup
-        fi
-        sed "s/192\.168\.10\.1/$AP_IP/g" \
-            config/network/interfaces.template > /etc/network/interfaces.new
-        print_success "Configuration interfaces préparée (sera appliquée plus tard)"
-    else
-        print_warning "Template interfaces.template non trouvé"
+    # Install web dashboard
+    if [[ ! "${install_web}" =~ ^[Nn]$ ]]; then
+        echo -e "\n${YELLOW}[~] Installing web dashboard...${NC}"
+        bash "${SCRIPTS_DIR}/install-web-dashboard.sh" || exit 1
     fi
     
-    # Configuration nginx
-    if [ -f "config/services/nginx-rasppunzel.conf" ]; then
-        sed "s/8080/$WEB_PORT/g" \
-            config/services/nginx-rasppunzel.conf > /etc/nginx/sites-available/rasppunzel
-        # Vérification que le fichier a été créé
-        if [ -f "/etc/nginx/sites-available/rasppunzel" ]; then
-            print_success "Configuration nginx appliquée"
-        else
-            print_error "Échec création fichier nginx"
-            return 1
-        fi
-    else
-        print_warning "Template nginx-rasppunzel.conf non trouvé"
-    fi
-    
-    print_success "Configuration appliquée aux templates"
+    log "INFO" "Custom installation completed"
 }
-# Créer le fichier de configuration d'authentification
-create_auth_config() {
-    print_step "Configuration de l'authentification..."
+
+# Post-installation
+post_install() {
+    log "INFO" "Running post-installation tasks..."
     
-    mkdir -p /opt/rasppunzel/config
+    # Create management scripts links
+    ln -sf "${SCRIPTS_DIR}/start-services.sh" /usr/local/bin/rasppunzel-start
+    ln -sf "${SCRIPTS_DIR}/stop-services.sh" /usr/local/bin/rasppunzel-stop
+    ln -sf "${SCRIPTS_DIR}/service-manager.sh" /usr/local/bin/rasppunzel-manager
     
-    # Hash du mot de passe avec Python
-    PASSWORD_HASH=$(python3 -c "import hashlib; print(hashlib.sha256('$ADMIN_PASS'.encode()).hexdigest())")
+    # Set proper permissions
+    chmod +x "${SCRIPTS_DIR}"/*.sh
+    chmod +x /usr/local/bin/rasppunzel-*
     
-    cat > /opt/rasppunzel/config/auth.json << EOF
-{
-    "username": "$ADMIN_USER",
-    "password_hash": "$PASSWORD_HASH",
-    "created_at": "$(date -I)",
-    "session_timeout": 480
+    # Create documentation directory
+    mkdir -p /opt/rasppunzel/docs
+    cp "${PROJECT_ROOT}/README.md" /opt/rasppunzel/docs/ 2>/dev/null || true
+    
+    # Generate summary
+    generate_summary
+    
+    log "INFO" "Post-installation completed"
 }
+
+# Generate installation summary
+generate_summary() {
+    local SUMMARY_FILE="/root/RASPPUNZEL-INFO.txt"
+    
+    cat > "${SUMMARY_FILE}" <<EOF
+═══════════════════════════════════════════════════════════════
+                RaspPunzel Installation Summary
+═══════════════════════════════════════════════════════════════
+
+Installation Date: $(date '+%Y-%m-%d %H:%M:%S')
+Hostname: $(hostname)
+IP Addresses: $(hostname -I)
+
+QUICK START COMMANDS:
+  rasppunzel-start        Start all services
+  rasppunzel-stop         Stop all services
+  rasppunzel-manager      Interactive management menu
+
+LIGOLO-NG:
+  Proxy Port: 11601
+  TUN Interface: ligolo
+  Status: systemctl status ligolo-proxy
+
+ADMIN ACCESS POINT:
+  SSID: ${ADMIN_AP_SSID:-PIVOT_ADMIN}
+  Password: ${ADMIN_AP_PASSPHRASE:-Check config}
+  IP: ${ADMIN_AP_IP:-10.0.0.1}
+
+WEB DASHBOARD:
+  URL: http://$(hostname -I | awk '{print $1}'):5000
+  Credentials: Check /opt/rasppunzel/web/.credentials
+
+IMPORTANT FILES:
+  Install Log: ${INSTALL_LOG}
+  Config: ${PROJECT_ROOT}/config.sh
+  Scripts: ${SCRIPTS_DIR}
+
+DOCUMENTATION:
+  Main: cat /opt/rasppunzel/docs/README.md
+  This file: cat ${SUMMARY_FILE}
+
+NEXT STEPS:
+  1. Review configuration: nano ${PROJECT_ROOT}/config.sh
+  2. Start services: rasppunzel-start
+  3. Check status: rasppunzel-manager status
+  4. Access web dashboard or connect agent
+
+═══════════════════════════════════════════════════════════════
 EOF
-    
-    chmod 600 /opt/rasppunzel/config/auth.json
-    chown $ADMIN_USER:$ADMIN_USER /opt/rasppunzel/config/auth.json 2>/dev/null || true
-    
-    print_success "Configuration d'authentification créée"
+
+    log "INFO" "Installation summary created at ${SUMMARY_FILE}"
 }
 
-# Copie des fichiers de configuration
-copy_configurations() {
-    print_step "Copie des fichiers de configuration..."
-    
-    # Copie des scripts avec permissions
-    if [ -d "scripts" ]; then
-        cp -r scripts/* /opt/rasppunzel-scripts/
-        chmod +x /opt/rasppunzel-scripts/*.sh
-        print_success "Scripts copiés et rendus exécutables"
-    fi
-    
-    # Copie de l'interface web
-    if [ -f "web/dashboard.html" ]; then
-        cp web/dashboard.html /opt/rasppunzel/web/
-        print_success "Interface web copiée"
-    fi
-    
-    if [ -f "web/login.html" ]; then
-        cp web/login.html /opt/rasppunzel/web/
-        print_success "Page de login copiée"
-    fi
-    
-    # Copie de l'API
-    if [ -d "web/api" ]; then
-        cp -r web/api /opt/rasppunzel/web/
-        print_success "API copiée"
-    fi
-    
-    # Copie des services systemd
-    if [ -f "config/systemd/rasppunzel-tower.service" ]; then
-        cp config/systemd/rasppunzel-tower.service /etc/systemd/system/
-        systemctl daemon-reload
-        print_success "Service systemd installé"
-    fi
-    
-    if [ -f "config/systemd/rasppunzel-network.service" ]; then
-        cp config/systemd/rasppunzel-network.service /etc/systemd/system/
-        print_success "Service réseau systemd installé"
-    fi
-}
-
-# Configuration des services système
-setup_services() {
-    print_step "Configuration des services système..."
-    
-    # Service SSH avec configuration sécurisée
-    systemctl enable ssh
-    
-    # Application de la configuration SSH si disponible
-    if [ -f "config/services/ssh-config.template" ]; then
-        cp config/services/ssh-config.template /etc/ssh/sshd_config.rasppunzel
-        print_status "Configuration SSH de référence créée"
-    fi
-    
-    # Configuration SSH de base
-    sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config
-    sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config
-    
-    # Création de l'utilisateur admin
-    if ! id "$ADMIN_USER" &>/dev/null; then
-        useradd -m -s /bin/bash "$ADMIN_USER"
-        echo "$ADMIN_USER:$ADMIN_PASS" | chpasswd
-        usermod -aG sudo "$ADMIN_USER"
-        
-        # Création du répertoire SSH pour l'utilisateur
-        mkdir -p /home/$ADMIN_USER/.ssh
-        chmod 700 /home/$ADMIN_USER/.ssh
-        chown $ADMIN_USER:$ADMIN_USER /home/$ADMIN_USER/.ssh
-        
-        print_success "Utilisateur '$ADMIN_USER' créé avec privilèges sudo"
-    else
-        print_warning "L'utilisateur '$ADMIN_USER' existe déjà"
-    fi
-    
-    # Configuration de l'auto-login console
-    mkdir -p /etc/systemd/system/getty@tty1.service.d/
-    cat > /etc/systemd/system/getty@tty1.service.d/autologin.conf << EOF
-[Service]
-ExecStart=
-ExecStart=-/sbin/agetty --autologin $ADMIN_USER --noclear %I \$TERM
-EOF
-    
-    # Configuration nginx
-    if [ -f "/etc/nginx/sites-available/rasppunzel" ]; then
-        ln -sf /etc/nginx/sites-available/rasppunzel /etc/nginx/sites-enabled/
-        rm -f /etc/nginx/sites-enabled/default
-        systemctl enable nginx
-        print_success "Configuration nginx activée"
-    fi
-    
-    print_success "Services système configurés"
-}
-
-# Activation des services de démarrage automatique
-setup_autostart() {
-    print_step "Configuration du démarrage automatique..."
-    
-    # Activation des services systemd
-    systemctl enable rasppunzel-tower.service 2>/dev/null || print_warning "Service rasppunzel-tower non trouvé"
-    systemctl enable rasppunzel-network.service 2>/dev/null || print_warning "Service rasppunzel-network non trouvé"
-    
-    # Création d'un service de fallback si les services principaux n'existent pas
-    if [ ! -f "/etc/systemd/system/rasppunzel-tower.service" ]; then
-        cat > /etc/systemd/system/rasppunzel-fallback.service << EOF
-[Unit]
-Description=RaspPunzel Fallback Service
-After=network.target
-Wants=network.target
-
-[Service]
-Type=oneshot
-ExecStart=/opt/rasppunzel-scripts/start-services.sh
-ExecStop=/opt/rasppunzel-scripts/stop-services.sh
-RemainAfterExit=yes
-User=root
-
-[Install]
-WantedBy=multi-user.target
-EOF
-        systemctl daemon-reload
-        systemctl enable rasppunzel-fallback.service
-        print_success "Service de fallback créé et activé"
-    fi
-    
-    print_success "Démarrage automatique configuré"
-}
-
-# Création d'un script de status system
-create_status_script() {
-    print_step "Création des outils de diagnostic..."
-    
-    cat > /usr/local/bin/rasppunzel-status << 'EOF'
-#!/bin/bash
-# Script de status RaspPunzel
-
-echo "RaspPunzel Status Dashboard"
-echo "=========================="
-echo
-echo "Services Status:"
-systemctl is-active --quiet ssh && echo "  SSH: Active" || echo "  SSH: Inactive"
-systemctl is-active --quiet hostapd && echo "  hostapd: Active" || echo "  hostapd: Inactive"
-systemctl is-active --quiet dnsmasq && echo "  dnsmasq: Active" || echo "  dnsmasq: Inactive"
-systemctl is-active --quiet nginx && echo "  nginx: Active" || echo "  nginx: Inactive"
-
-echo
-echo "Network Status:"
-ip addr show | grep "inet " | grep -v "127.0.0.1" | while read line; do
-    echo "  $line"
-done
-
-echo
-echo "System Resources:"
-echo "  Uptime: $(uptime -p)"
-echo "  Disk Usage: $(df -h / | awk 'NR==2 {print $5 " used"}')"
-echo "  Memory: $(free -h | awk 'NR==2{printf "%.1fG/%.1fG (%.0f%%)\n", $3/1024, $2/1024, $3*100/$2}')"
-echo "  Temperature: $(vcgencmd measure_temp 2>/dev/null || echo "N/A")"
-
-echo
-echo "Access Information:"
-echo "  Web Interface: http://$(hostname -I | awk '{print $1}'):8080"
-echo "  SSH: ssh admin@$(hostname -I | awk '{print $1}')"
-EOF
-    
-    chmod +x /usr/local/bin/rasppunzel-status
-    
-    # Alias dans bashrc
-    echo "alias rpstatus='rasppunzel-status'" >> /home/$ADMIN_USER/.bashrc 2>/dev/null || true
-    
-    print_success "Script de diagnostic créé (/usr/local/bin/rasppunzel-status)"
-}
-
-# Nettoyage et optimisation finale
-cleanup_and_optimize() {
-    print_step "Nettoyage et optimisation finale..."
-    
-    # Nettoyage APT
-    apt-get autoremove -y -qq
-    apt-get autoclean -qq
-    
-    # Optimisation des logs
-    mkdir -p /var/log/rasppunzel
-    touch /var/log/rasppunzel/access.log
-    touch /var/log/rasppunzel/install.log
-    
-    # Log de l'installation
-    echo "[$(date)] RaspPunzel installation completed successfully" >> /var/log/rasppunzel/install.log
-    
-    # Optimisation des permissions
-    chown -R $ADMIN_USER:$ADMIN_USER /home/$ADMIN_USER 2>/dev/null || true
-    chown -R $ADMIN_USER:$ADMIN_USER /opt/rasppunzel 2>/dev/null || true
-    chmod -R 755 /opt/rasppunzel-scripts
-    chmod 644 /var/log/rasppunzel/*.log
-    
-    # Nettoyage des fichiers temporaires
-    rm -rf /tmp/rasppunzel-* 2>/dev/null || true
-    
-    print_success "Nettoyage et optimisation terminés"
-}
-# Installation complète avec gestion d'erreur
-
-
-# Installation complète avec gestion d'erreur
+# Main installation flow
 main() {
-    # Gestion des erreurs
-    trap 'print_error "Installation échouée à la ligne $LINENO. Consultez /var/log/rasppunzel/install.log"' ERR
-    
-    clear
     print_banner
+    check_root
     
-    print_status "Démarrage de l'installation RaspPunzel v1.0"
-    print_status "Temps estimé: 10-15 minutes selon votre connexion Internet"
-    echo
+    # Initialize log
+    mkdir -p "$(dirname "${INSTALL_LOG}")"
+    echo "═══════════════════════════════════════════════════════════════" > "${INSTALL_LOG}"
+    echo "RaspPunzel Installation - $(date)" >> "${INSTALL_LOG}"
+    echo "═══════════════════════════════════════════════════════════════" >> "${INSTALL_LOG}"
     
-    # Étapes d'installation dans l'ordre correct
-    check_prerequisites
-    configure_settings
+    check_requirements
+    load_config
     
-    # NOUVEAU: Installation des packages de base AVANT la configuration
-    install_base_packages || {
-        print_error "Installation des packages de base échouée"
-        exit 1
-    }
+    # Show menu
+    while true; do
+        show_menu
+        read choice
+        
+        case $choice in
+            1)
+                echo -e "\n${GREEN}Starting full installation...${NC}\n"
+                full_install
+                break
+                ;;
+            2)
+                echo -e "\n${GREEN}Starting minimal installation...${NC}\n"
+                minimal_install
+                break
+                ;;
+            3)
+                custom_install
+                break
+                ;;
+            4)
+                echo -e "\n${YELLOW}Installation cancelled.${NC}"
+                exit 0
+                ;;
+            *)
+                echo -e "\n${RED}Invalid option. Please try again.${NC}\n"
+                sleep 2
+                ;;
+        esac
+    done
     
-    # NOUVEAU: Vérification des répertoires AVANT apply_configuration
-    check_and_create_directories || {
-        print_error "Vérification des répertoires échouée" 
-        exit 1
-    }
+    # Post-installation
+    post_install
     
-    apply_configuration || {
-        print_error "Application de la configuration échouée"
-        exit 1
-    }
+    # Final message
+    echo -e "\n${GREEN}"
+    echo "═══════════════════════════════════════════════════════════════"
+    echo "           ✓ RaspPunzel Installation Complete!"
+    echo "═══════════════════════════════════════════════════════════════"
+    echo -e "${NC}"
+    echo -e "Installation summary: ${BLUE}/root/RASPPUNZEL-INFO.txt${NC}"
+    echo -e "Installation log: ${BLUE}${INSTALL_LOG}${NC}"
+    echo ""
+    echo -e "${YELLOW}Reboot recommended to apply all changes.${NC}"
+    echo ""
+    read -p "Reboot now? [y/N]: " reboot_now
     
-    create_auth_config
-    
-    # Exécution des sous-scripts avec vérification
-    print_step "Exécution des scripts de configuration..."
-    
-    if [ -f "scripts/update-system.sh" ]; then
-        print_status "Mise à jour du système..."
-        bash scripts/update-system.sh || print_warning "Mise à jour système échouée (non critique)"
-    fi
-    
-    if [ -f "scripts/setup-tools.sh" ]; then
-        print_status "Installation des outils de pentest..."
-        bash scripts/setup-tools.sh || print_warning "Installation d'outils échouée (non critique)"
-    fi
-    
-    if [ -f "scripts/install-web-dashboard.sh" ]; then
-        print_status "Installation du dashboard web..."
-        bash scripts/install-web-dashboard.sh || print_error "Installation dashboard web échouée (critique)"
-    else
-        print_warning "Script install-web-dashboard.sh non trouvé - Interface web non disponible"
-    fi
-    
-    if [ -f "scripts/setup-network.sh" ]; then
-        print_status "Configuration réseau..."
-        bash scripts/setup-network.sh || print_error "Configuration réseau échouée (critique)"
-    fi
-    
-    copy_configurations
-    setup_services
-    setup_autostart
-    create_status_script
-    cleanup_and_optimize
-    
-    # Le reste du code reste identique...
-    # [Résumé final]
-    # Résumé final
-    echo
-    echo -e "${GREEN}╔══════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${GREEN}║                    INSTALLATION RÉUSSIE                     ║${NC}"
-    echo -e "${GREEN}╚══════════════════════════════════════════════════════════════╝${NC}"
-    echo
-    print_success "RaspPunzel v1.0 installé avec succès!"
-    print_warning "REDÉMARRAGE REQUIS pour finaliser l'installation"
-    echo
-    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo -e "${YELLOW}Informations d'accès après redémarrage:${NC}"
-    echo
-    echo "   WiFi AP (caché): $WIFI_SSID"
-    echo "   Mot de passe WiFi: [CONFIGURÉ]"
-    echo "   IP du Pi: $AP_IP"
-    echo "   Interface Web: http://$AP_IP:$WEB_PORT"
-    echo "   Login web: $ADMIN_USER / [MOT DE PASSE CONFIGURÉ]"
-    echo "   SSH: ssh $ADMIN_USER@$AP_IP"
-    echo
-    echo -e "${YELLOW}Commandes utiles:${NC}"
-    echo "   rasppunzel-status  # Status du système"
-    echo
-    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo
-    
-    # Proposition de redémarrage
-    read -p "Redémarrer maintenant pour finaliser l'installation? (Y/n): " -n 1 -r
-    echo
-    if [[ $REPLY =~ ^[Nn]$ ]]; then
-        echo
-        print_warning "N'oubliez pas de redémarrer plus tard avec: sudo reboot"
-        print_status "Installation terminée. Redémarrage manuel requis."
-    else
-        echo
-        print_status "Redémarrage en cours..."
-        sleep 2
+    if [[ "${reboot_now}" =~ ^[Yy]$ ]]; then
+        log "INFO" "Rebooting system..."
         reboot
+    else
+        echo -e "\n${GREEN}Please reboot manually when ready: sudo reboot${NC}\n"
     fi
 }
 
-# Point d'entrée avec gestion des arguments
-case "${1:-install}" in
-    install|"")
-        main "$@"
-        ;;
-    --help|-h)
-        echo "RaspPunzel Installation Script v1.0"
-        echo
-        echo "Usage: $0 [options]"
-        echo
-        echo "Options:"
-        echo "  install, (default)  Installation complète interactive"
-        echo "  --help, -h          Afficher cette aide"
-        echo "  --version, -v       Afficher la version"
-        echo
-        ;;
-    --version|-v)
-        echo "RaspPunzel Installation Script v1.0"
-        echo "Implant RedTeam portable pour Raspberry Pi"
-        ;;
-    *)
-        print_error "Option inconnue: $1"
-        echo "Utilisez: $0 --help pour voir les options disponibles"
-        exit 1
-        ;;
-esac
+# Run main installation
+main "$@"
