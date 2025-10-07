@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # =================================================================================================
-# RaspPunzel - Ligolo-ng Agent Installation Script
+# RaspPunzel - Install Ligolo-ng Agent
 # =================================================================================================
 
 set -e
@@ -12,254 +12,266 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
-# Load configuration
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
-
-if [[ -f "${PROJECT_ROOT}/config.sh" ]]; then
-    source "${PROJECT_ROOT}/config.sh"
-else
-    echo -e "${RED}Error: config.sh not found${NC}"
-    exit 1
-fi
+# Default configuration
+LIGOLO_VERSION="${LIGOLO_VERSION:-v0.8.2}"
+LIGOLO_PROXY_HOST="${LIGOLO_PROXY_HOST:-192.168.1.100}"
+LIGOLO_PROXY_PORT="${LIGOLO_PROXY_PORT:-11601}"
+LIGOLO_IGNORE_CERT="${LIGOLO_IGNORE_CERT:-true}"
+LIGOLO_RETRY_DELAY="${LIGOLO_RETRY_DELAY:-10}"
 
 # Detect architecture
 ARCH=$(uname -m)
-case "$ARCH" in
-    aarch64|arm64)
-        LIGOLO_ARCH="arm64"
-        ;;
-    armv7l)
-        LIGOLO_ARCH="armv7"
-        ;;
+case $ARCH in
     x86_64)
         LIGOLO_ARCH="amd64"
         ;;
+    aarch64|arm64)
+        LIGOLO_ARCH="arm64"
+        ;;
+    armv7l|armv6l)
+        LIGOLO_ARCH="armv7"
+        ;;
     *)
-        echo -e "${RED}Unsupported architecture: $ARCH${NC}"
+        echo -e "${RED}[!] Unsupported architecture: $ARCH${NC}"
         exit 1
         ;;
 esac
 
 echo -e "${BLUE}════════════════════════════════════════════════════════════════${NC}"
-echo -e "${BLUE}  Installing Ligolo-ng AGENT ${LIGOLO_VERSION}${NC}"
+echo -e "${BLUE}  Installing Ligolo-ng Agent${NC}"
 echo -e "${BLUE}════════════════════════════════════════════════════════════════${NC}"
 echo ""
 
-# Prompt for proxy server address if not set
-if [[ -z "${LIGOLO_PROXY_HOST}" ]]; then
-    echo -e "${YELLOW}[!] Proxy server address not configured${NC}"
-    echo ""
-    echo "Enter your ATTACKER MACHINE details:"
-    read -p "Proxy Host/IP: " LIGOLO_PROXY_HOST
-    read -p "Proxy Port [11601]: " LIGOLO_PROXY_PORT_INPUT
-    LIGOLO_PROXY_PORT="${LIGOLO_PROXY_PORT_INPUT:-11601}"
-    
-    # Save to config
-    echo "" >> "${PROJECT_ROOT}/config.sh"
-    echo "# Ligolo Proxy Server (Your Attacker Machine)" >> "${PROJECT_ROOT}/config.sh"
-    echo "LIGOLO_PROXY_HOST=\"${LIGOLO_PROXY_HOST}\"" >> "${PROJECT_ROOT}/config.sh"
-    echo "LIGOLO_PROXY_PORT=\"${LIGOLO_PROXY_PORT}\"" >> "${PROJECT_ROOT}/config.sh"
+echo -e "${GREEN}[+] Configuration:${NC}"
+echo -e "    Version:     ${LIGOLO_VERSION}"
+echo -e "    Architecture: ${LIGOLO_ARCH}"
+echo -e "    Proxy Host:  ${LIGOLO_PROXY_HOST}"
+echo -e "    Proxy Port:  ${LIGOLO_PROXY_PORT}"
+echo ""
+
+# Check if already installed
+if [ -f "/usr/local/bin/ligolo-agent" ]; then
+    CURRENT_VERSION=$(/usr/local/bin/ligolo-agent --version 2>&1 | grep -oP 'v\d+\.\d+' || echo "unknown")
+    echo -e "${YELLOW}[!] Ligolo-ng agent already installed (${CURRENT_VERSION})${NC}"
+    read -p "Do you want to reinstall? (y/N): " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        echo -e "${GREEN}[+] Keeping existing installation${NC}"
+        exit 0
+    fi
 fi
 
-echo ""
-echo -e "${GREEN}[+] Agent will connect to: ${LIGOLO_PROXY_HOST}:${LIGOLO_PROXY_PORT}${NC}"
-echo ""
+# Download URL - Correct format without 'v' prefix in filename
+LIGOLO_URL="https://github.com/nicocha30/ligolo-ng/releases/download/${LIGOLO_VERSION}/ligolo-ng_agent_${LIGOLO_VERSION#v}_linux_${LIGOLO_ARCH}.tar.gz"
 
-# Create directories
-mkdir -p /opt/rasppunzel/ligolo
-mkdir -p /etc/rasppunzel
-
-# Download Ligolo-ng agent
-cd /tmp
 echo -e "${YELLOW}[~] Downloading Ligolo-ng agent...${NC}"
-wget -q "https://github.com/nicocha30/ligolo-ng/releases/download/${LIGOLO_VERSION}/ligolo-ng_agent_${LIGOLO_VERSION}_linux_${LIGOLO_ARCH}.tar.gz"
+echo -e "    URL: ${LIGOLO_URL}"
 
-# Extract
-tar -xzf "ligolo-ng_agent_${LIGOLO_VERSION}_linux_${LIGOLO_ARCH}.tar.gz"
+# Create temp directory
+TMP_DIR=$(mktemp -d)
+cd "$TMP_DIR"
 
-# Install
-mv agent /opt/rasppunzel/ligolo/
-chmod +x /opt/rasppunzel/ligolo/agent
+# Download with retries
+MAX_RETRIES=3
+RETRY_COUNT=0
 
-# Save version
-echo "${LIGOLO_VERSION}" > /opt/rasppunzel/ligolo/VERSION
+while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+    if wget --timeout=30 --tries=3 -q --show-progress "${LIGOLO_URL}" -O ligolo-agent.tar.gz; then
+        echo -e "${GREEN}[+] Download successful${NC}"
+        break
+    else
+        RETRY_COUNT=$((RETRY_COUNT + 1))
+        if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+            echo -e "${YELLOW}[!] Download failed, retrying ($RETRY_COUNT/$MAX_RETRIES)...${NC}"
+            sleep 3
+        else
+            echo -e "${RED}[!] Download failed after $MAX_RETRIES attempts${NC}"
+            echo -e "${RED}[!] Please check:${NC}"
+            echo -e "${RED}    1. Internet connectivity${NC}"
+            echo -e "${RED}    2. GitHub is accessible${NC}"
+            echo -e "${RED}    3. Release version exists: ${LIGOLO_VERSION}${NC}"
+            echo ""
+            echo -e "${YELLOW}[~] Available versions at: https://github.com/nicocha30/ligolo-ng/releases${NC}"
+            rm -rf "$TMP_DIR"
+            exit 1
+        fi
+    fi
+done
+
+# Verify download
+if [ ! -f "ligolo-agent.tar.gz" ] || [ ! -s "ligolo-agent.tar.gz" ]; then
+    echo -e "${RED}[!] Downloaded file is missing or empty${NC}"
+    rm -rf "$TMP_DIR"
+    exit 1
+fi
+
+echo -e "${YELLOW}[~] Extracting archive...${NC}"
+if ! tar -xzf ligolo-agent.tar.gz; then
+    echo -e "${RED}[!] Failed to extract archive${NC}"
+    echo -e "${RED}[!] The downloaded file might be corrupted${NC}"
+    rm -rf "$TMP_DIR"
+    exit 1
+fi
+
+# Find the agent binary
+AGENT_BINARY=$(find . -name "agent" -type f | head -n 1)
+
+if [ -z "$AGENT_BINARY" ] || [ ! -f "$AGENT_BINARY" ]; then
+    echo -e "${RED}[!] Agent binary not found in archive${NC}"
+    echo -e "${RED}[!] Archive contents:${NC}"
+    tar -tzf ligolo-agent.tar.gz
+    rm -rf "$TMP_DIR"
+    exit 1
+fi
+
+echo -e "${YELLOW}[~] Installing agent binary...${NC}"
+install -m 0755 "$AGENT_BINARY" /usr/local/bin/ligolo-agent
+
+# Verify installation
+if [ ! -f "/usr/local/bin/ligolo-agent" ]; then
+    echo -e "${RED}[!] Failed to install agent binary${NC}"
+    rm -rf "$TMP_DIR"
+    exit 1
+fi
 
 # Cleanup
-rm -f /tmp/ligolo-ng_*.tar.gz
+rm -rf "$TMP_DIR"
 
-echo -e "${GREEN}[+] Ligolo-ng agent installed${NC}"
+echo -e "${GREEN}[+] Ligolo-ng agent installed successfully${NC}"
 
-# Create agent configuration file
-echo -e "${YELLOW}[~] Creating agent configuration...${NC}"
-cat > /etc/rasppunzel/agent.conf <<EOF
-# Ligolo-ng Agent Configuration
-# This Raspberry Pi connects to YOUR attacker machine proxy
-
-# Proxy server address (YOUR attacker machine)
-PROXY_HOST="${LIGOLO_PROXY_HOST}"
-PROXY_PORT="${LIGOLO_PROXY_PORT}"
-
-# Connection options
-IGNORE_CERT="true"
-RETRY_DELAY="10"
-AUTO_RESTART="true"
-
-# Logging
-LOG_LEVEL="info"
-EOF
-
-echo -e "${GREEN}[+] Configuration created${NC}"
-
-# Create systemd service for agent
+# Create systemd service
 echo -e "${YELLOW}[~] Creating systemd service...${NC}"
+
+# Build agent command
+AGENT_CMD="/usr/local/bin/ligolo-agent -connect ${LIGOLO_PROXY_HOST}:${LIGOLO_PROXY_PORT}"
+
+if [ "$LIGOLO_IGNORE_CERT" = "true" ]; then
+    AGENT_CMD="${AGENT_CMD} -ignore-cert"
+fi
+
+AGENT_CMD="${AGENT_CMD} -retry"
+
 cat > /etc/systemd/system/ligolo-agent.service <<EOF
 [Unit]
-Description=Ligolo-ng Proxy Server
+Description=Ligolo-ng Agent - Network Tunneling
+Documentation=https://github.com/nicocha30/ligolo-ng
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=simple
 User=root
-WorkingDirectory=/opt/ligolo-ng
-ExecStartPre=/bin/sh -c 'ip tuntap add user root mode tun ${TUN_INTERFACE} || true'
-ExecStartPre=/bin/sh -c 'ip link set ${TUN_INTERFACE} up || true'
-ExecStartPre=/bin/sh -c 'ip addr add ${TUN_IP} dev ${TUN_INTERFACE} || true'
-ExecStart=/opt/ligolo-ng/proxy -selfcert -laddr ${LIGOLO_BIND_ADDR}:${LIGOLO_PORT}
-ExecStopPost=/bin/sh -c 'ip link delete ${TUN_INTERFACE} || true'
+ExecStart=${AGENT_CMD}
 Restart=always
-RestartSec=10
+RestartSec=${LIGOLO_RETRY_DELAY}
 StandardOutput=journal
 StandardError=journal
+
+# Security hardening
+NoNewPrivileges=false
+PrivateTmp=yes
+
+# Network
+BindsTo=network-online.target
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
-# Enable and start service
+# Set permissions
+chmod 644 /etc/systemd/system/ligolo-agent.service
+
+# Reload systemd
 systemctl daemon-reload
-systemctl enable ligolo-proxy
 
-echo -e "${GREEN}[+] Ligolo-ng service configured${NC}"
+echo -e "${GREEN}[+] Systemd service created${NC}"
 
-# Configure IP forwarding
-echo -e "${YELLOW}[~] Configuring IP forwarding...${NC}"
-if ! grep -q "net.ipv4.ip_forward=1" /etc/sysctl.conf; then
-    echo "net.ipv4.ip_forward=1" >> /etc/sysctl.conf
-fi
-sysctl -p >/dev/null
+# Enable service
+echo -e "${YELLOW}[~] Enabling service to start at boot...${NC}"
+systemctl enable ligolo-agent
 
-# Configure iptables
-echo -e "${YELLOW}[~] Configuring firewall rules...${NC}"
+echo -e "${GREEN}[+] Service enabled${NC}"
 
-# Allow Ligolo port
-iptables -A INPUT -p tcp --dport ${LIGOLO_PORT} -j ACCEPT
-
-# Allow forwarding through Ligolo interface
-iptables -A FORWARD -i ${TUN_INTERFACE} -j ACCEPT
-iptables -A FORWARD -o ${TUN_INTERFACE} -j ACCEPT
-
-# NAT for outbound traffic
-iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
-iptables -t nat -A POSTROUTING -o wlan0 -j MASQUERADE
-
-# Save rules
-if command -v netfilter-persistent &> /dev/null; then
-    netfilter-persistent save
-elif command -v iptables-save &> /dev/null; then
-    iptables-save > /etc/iptables/rules.v4
-fi
-
-echo -e "${GREEN}[+] Firewall rules configured${NC}"
-
-# Create helper scripts
-echo -e "${YELLOW}[~] Creating helper scripts...${NC}"
-
+# Create management scripts
 cat > /usr/local/bin/ligolo-status <<'EOF'
 #!/bin/bash
-echo "=== Ligolo-ng Status ==="
-systemctl status ligolo-proxy --no-pager
+echo "=== Ligolo-ng Agent Status ==="
+systemctl status ligolo-agent --no-pager
 echo ""
-echo "=== TUN Interface ==="
-ip addr show ligolo 2>/dev/null || echo "Interface not created"
-echo ""
-echo "=== Active Connections ==="
-ss -tulpn | grep :11601
+echo "=== Recent Logs ==="
+journalctl -u ligolo-agent -n 20 --no-pager
 EOF
 chmod +x /usr/local/bin/ligolo-status
 
 cat > /usr/local/bin/ligolo-restart <<'EOF'
 #!/bin/bash
-echo "Restarting Ligolo-ng proxy..."
-systemctl restart ligolo-proxy
+echo "Restarting Ligolo-ng agent..."
+systemctl restart ligolo-agent
 sleep 2
-systemctl status ligolo-proxy --no-pager
+systemctl status ligolo-agent --no-pager
 EOF
 chmod +x /usr/local/bin/ligolo-restart
 
-echo -e "${GREEN}[+] Helper scripts created${NC}"
-
-# Create documentation
-cat > /opt/ligolo-ng/USAGE.txt <<EOF
-=================================================================================
-Ligolo-ng Quick Reference
-=================================================================================
-
-PROXY INFORMATION:
-  Location: /opt/ligolo-ng/proxy
-  Service: systemctl status ligolo-proxy
-  Port: ${LIGOLO_PORT}
-  TUN Interface: ${TUN_INTERFACE}
-  TUN IP: ${TUN_IP}
-
-QUICK COMMANDS:
-  Status: ligolo-status
-  Restart: ligolo-restart
-  Logs: journalctl -u ligolo-proxy -f
-
-DEPLOYING AGENT:
-  1. Download agent for target OS from:
-     https://github.com/nicocha30/ligolo-ng/releases
-
-  2. Transfer to compromised host
-
-  3. Run agent:
-     ./agent -connect <RASPPUNZEL_IP>:${LIGOLO_PORT} -ignore-cert
-
-CONFIGURING ROUTES (on your attacker machine):
-  # Add route to internal network
-  sudo ip route add 172.16.10.0/24 dev ${TUN_INTERFACE}
-
-  # Verify route
-  ip route show | grep ${TUN_INTERFACE}
-
-  # Remove route
-  sudo ip route del 172.16.10.0/24 dev ${TUN_INTERFACE}
-
-ACCESSING INTERNAL NETWORKS:
-  Once agent connected and route configured, access directly:
-  - ping 172.16.10.50
-  - nmap 172.16.10.0/24
-  - curl http://172.16.10.100
-
-NO SOCKS PROXY NEEDED!
-
-=================================================================================
+cat > /usr/local/bin/ligolo-logs <<'EOF'
+#!/bin/bash
+journalctl -u ligolo-agent -f
 EOF
+chmod +x /usr/local/bin/ligolo-logs
 
-echo -e "${GREEN}"
-echo "═══════════════════════════════════════════════════════════"
-echo "  Ligolo-ng Installation Complete!"
-echo "═══════════════════════════════════════════════════════════"
-echo -e "${NC}"
-echo "  Proxy: /opt/ligolo-ng/proxy"
-echo "  Service: ligolo-proxy"
-echo "  Port: ${LIGOLO_PORT}"
-echo "  TUN Interface: ${TUN_INTERFACE}"
+cat > /usr/local/bin/ligolo-config <<'EOF'
+#!/bin/bash
+echo "=== Ligolo-ng Configuration ==="
 echo ""
-echo "  Usage guide: cat /opt/ligolo-ng/USAGE.txt"
-echo "  Status: ligolo-status"
+systemctl cat ligolo-agent | grep ExecStart
 echo ""
-echo -e "${YELLOW}  Start service: systemctl start ligolo-proxy${NC}"
+echo "Binary: $(which ligolo-agent)"
+echo "Version: $(ligolo-agent --version 2>&1 || echo 'unknown')"
+echo ""
+echo "Service Status:"
+systemctl is-enabled ligolo-agent
+systemctl is-active ligolo-agent
+EOF
+chmod +x /usr/local/bin/ligolo-config
+
+echo -e "${GREEN}[+] Management scripts created:${NC}"
+echo -e "    ligolo-status   - Show status and recent logs"
+echo -e "    ligolo-restart  - Restart the agent"
+echo -e "    ligolo-logs     - Follow live logs"
+echo -e "    ligolo-config   - Show configuration"
+echo ""
+
+# Test agent binary
+echo -e "${YELLOW}[~] Testing agent binary...${NC}"
+if /usr/local/bin/ligolo-agent --version >/dev/null 2>&1; then
+    echo -e "${GREEN}[+] Agent binary is working${NC}"
+else
+    echo -e "${RED}[!] Agent binary test failed${NC}"
+    exit 1
+fi
+
+echo ""
+echo -e "${BLUE}════════════════════════════════════════════════════════════════${NC}"
+echo -e "${GREEN}[+] Installation Complete!${NC}"
+echo -e "${BLUE}════════════════════════════════════════════════════════════════${NC}"
+echo ""
+echo -e "${GREEN}Agent Configuration:${NC}"
+echo -e "  Binary:       /usr/local/bin/ligolo-agent"
+echo -e "  Service:      ligolo-agent.service"
+echo -e "  Connect to:   ${LIGOLO_PROXY_HOST}:${LIGOLO_PROXY_PORT}"
+echo -e "  Auto-start:   Enabled"
+echo -e "  Ignore Cert:  ${LIGOLO_IGNORE_CERT}"
+echo ""
+echo -e "${YELLOW}Next Steps:${NC}"
+echo -e "  1. Start agent:   ${GREEN}systemctl start ligolo-agent${NC}"
+echo -e "  2. Check status:  ${GREEN}ligolo-status${NC}"
+echo -e "  3. View logs:     ${GREEN}ligolo-logs${NC}"
+echo ""
+echo -e "${YELLOW}Management:${NC}"
+echo -e "  systemctl start ligolo-agent    # Start agent"
+echo -e "  systemctl stop ligolo-agent     # Stop agent"
+echo -e "  ligolo-restart                  # Restart agent"
+echo -e "  ligolo-status                   # Check status"
+echo -e "  ligolo-config                   # View config"
+echo ""
+echo -e "${YELLOW}Note:${NC} Make sure the Ligolo-ng proxy is running on ${LIGOLO_PROXY_HOST}:${LIGOLO_PROXY_PORT}"
 echo ""
