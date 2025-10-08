@@ -888,36 +888,121 @@ chmod +x /opt/rasppunzel/web/api/app.py
 echo -e "${YELLOW}[~] Configuring Nginx...${NC}"
 cp "${PROJECT_ROOT}/config/nginx-rasppunzel.conf" /etc/nginx/sites-available/rasppunzel 2>/dev/null || \
 cat > /etc/nginx/sites-available/rasppunzel <<'NGINXEOF'
+# /etc/nginx/sites-available/rasppunzel
+# Configuration Nginx pour RaspPunzel Web Interface
+
 server {
-    listen 8080 default_server;
-    listen [::]:8080 default_server;
-    server_name rasppunzel.local;
+    listen 8080;
+    listen [::]:8080;
+    
+    server_name rasppunzel.local localhost 127.0.0.1 _;
+    
+    # Racine du site web
     root /opt/rasppunzel/web;
-    index index.html;
+    index index.html dashboard.html;
     
-    access_log /var/log/nginx/rasppunzel_access.log;
-    error_log /var/log/nginx/rasppunzel_error.log;
+    # Logs
+    access_log /var/log/nginx/rasppunzel-access.log;
+    error_log /var/log/nginx/rasppunzel-error.log;
     
-    location = / {
-        try_files /index.html =404;
+    # Page par défaut
+    location / {
+        try_files $uri $uri/ /index.html =404;
     }
     
-    location /api/ {
-        proxy_pass http://127.0.0.1:5000/api/;
+    # Route pour /login - Rediriger vers page de connexion Flask
+    location = /login {
+        proxy_pass http://127.0.0.1:5000/login;
+        proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     }
     
+    # Route pour /logout
+    location = /logout {
+        proxy_pass http://127.0.0.1:5000/logout;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+    
+    # Route pour /dashboard - Servir depuis Flask pour vérifier l'auth
+    location = /dashboard {
+        proxy_pass http://127.0.0.1:5000/dashboard;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_redirect off;
+    }
+    
+    # API endpoints - IMPORTANT: Ne pas mettre de / à la fin de proxy_pass
+    location /api/ {
+        proxy_pass http://127.0.0.1:5000/api/;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+        proxy_read_timeout 300s;
+        proxy_connect_timeout 75s;
+    }
+    
+    # WebSocket pour socket.io
     location /socket.io/ {
         proxy_pass http://127.0.0.1:5000/socket.io/;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_read_timeout 300s;
+        proxy_connect_timeout 75s;
+        proxy_buffering off;
     }
     
-    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg)$ {
+    # Fichiers HTML statiques
+    location ~ \.html$ {
+        try_files $uri =404;
+    }
+    
+    # Fichiers statiques (CSS, JS, images)
+    location ~* \.(css|js|jpg|jpeg|png|gif|ico|svg|woff|woff2|ttf|eot|map)$ {
         expires 1y;
         add_header Cache-Control "public, immutable";
+        access_log off;
+    }
+    
+    # Désactiver les logs pour favicon
+    location = /favicon.ico {
+        access_log off;
+        log_not_found off;
+    }
+    
+    # Désactiver les logs pour robots.txt
+    location = /robots.txt {
+        access_log off;
+        log_not_found off;
+    }
+    
+    # Sécurité - Cacher les fichiers sensibles
+    location ~ /\. {
+        deny all;
+        access_log off;
+        log_not_found off;
+    }
+    
+    # Désactiver l'affichage des répertoires
+    location ~ ^.*/(logs|config|data)/ {
+        deny all;
+        return 404;
     }
 }
 NGINXEOF
