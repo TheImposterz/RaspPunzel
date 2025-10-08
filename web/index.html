@@ -25,9 +25,10 @@
             background: white;
             border-radius: 12px;
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-            max-width: 420px;
+            max-width: 480px;
             width: 100%;
             padding: 40px;
+            transition: all 0.3s ease;
         }
 
         .logo {
@@ -48,18 +49,84 @@
         }
 
         .alert {
-            background: #fee;
-            border: 1px solid #fcc;
             border-radius: 6px;
             padding: 12px 16px;
             margin-bottom: 20px;
-            color: #c33;
             font-size: 14px;
             display: none;
         }
 
         .alert.show {
             display: block;
+        }
+
+        .alert-error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+
+        .alert-warning {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+        }
+
+        .warning-box {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 24px;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(255, 193, 7, 0.4); }
+            50% { box-shadow: 0 0 0 8px rgba(255, 193, 7, 0); }
+        }
+
+        .warning-box h3 {
+            color: #856404;
+            font-size: 16px;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 600;
+        }
+
+        .warning-box p {
+            color: #856404;
+            font-size: 14px;
+            line-height: 1.5;
+            margin: 0;
+        }
+
+        .form-section {
+            display: none;
+        }
+
+        .form-section.active {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
         .form-group {
@@ -87,6 +154,51 @@
             outline: none;
             border-color: #667eea;
             box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .password-requirements {
+            background: #f8f9fa;
+            border-radius: 6px;
+            padding: 12px;
+            margin-top: 8px;
+            font-size: 13px;
+        }
+
+        .password-requirements h4 {
+            color: #495057;
+            font-size: 13px;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        .password-requirements ul {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .password-requirements li {
+            color: #6c757d;
+            margin-bottom: 4px;
+            padding-left: 20px;
+            position: relative;
+            transition: color 0.2s;
+        }
+
+        .password-requirements li:before {
+            content: "○";
+            position: absolute;
+            left: 8px;
+            font-size: 12px;
+        }
+
+        .password-requirements li.valid {
+            color: #28a745;
+            font-weight: 500;
+        }
+
+        .password-requirements li.valid:before {
+            content: "✓";
+            font-weight: bold;
         }
 
         .btn-login {
@@ -131,6 +243,32 @@
             color: #6c757d;
         }
 
+        .progress-indicator {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 24px;
+        }
+
+        .progress-step {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #e9ecef;
+            transition: all 0.3s;
+        }
+
+        .progress-step.active {
+            background: #667eea;
+            width: 12px;
+            height: 12px;
+        }
+
+        .progress-step.completed {
+            background: #28a745;
+        }
+
         @media (max-width: 480px) {
             .login-container {
                 padding: 30px 20px;
@@ -142,43 +280,100 @@
     <div class="login-container">
         <div class="logo">
             <h1>🍓 RaspPunzel</h1>
-            <p>Administration Panel</p>
+            <p id="logoSubtitle">Administration Panel</p>
+        </div>
+
+        <div class="progress-indicator" id="progressIndicator" style="display: none;">
+            <div class="progress-step" id="step1"></div>
+            <div class="progress-step" id="step2"></div>
         </div>
 
         <div class="alert" id="alert"></div>
 
-        <form id="loginForm">
-            <div class="form-group">
-                <label for="username">Nom d'utilisateur</label>
-                <input 
-                    type="text" 
-                    id="username" 
-                    name="username" 
-                    required 
-                    autofocus
-                    autocomplete="username"
-                >
+        <!-- SECTION 1: LOGIN -->
+        <div class="form-section active" id="loginSection">
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="username">Nom d'utilisateur</label>
+                    <input 
+                        type="text" 
+                        id="username" 
+                        name="username" 
+                        required 
+                        autofocus
+                        autocomplete="username"
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="password">Mot de passe</label>
+                    <input 
+                        type="password" 
+                        id="password" 
+                        name="password" 
+                        required
+                        autocomplete="current-password"
+                    >
+                </div>
+
+                <button type="submit" class="btn-login" id="btnLogin">
+                    Se connecter
+                </button>
+
+                <div class="loading-spinner" id="loadingLogin">
+                    Connexion en cours...
+                </div>
+            </form>
+        </div>
+
+        <!-- SECTION 2: CHANGE PASSWORD -->
+        <div class="form-section" id="changePasswordSection">
+            <div class="warning-box">
+                <h3>⚠️ Sécurité requise</h3>
+                <p>Pour des raisons de sécurité, vous devez changer le mot de passe par défaut avant d'accéder au système.</p>
             </div>
 
-            <div class="form-group">
-                <label for="password">Mot de passe</label>
-                <input 
-                    type="password" 
-                    id="password" 
-                    name="password" 
-                    required
-                    autocomplete="current-password"
-                >
-            </div>
+            <form id="changePasswordForm">
+                <div class="form-group">
+                    <label for="newPassword">Nouveau mot de passe</label>
+                    <input 
+                        type="password" 
+                        id="newPassword" 
+                        name="newPassword" 
+                        required
+                        autocomplete="new-password"
+                    >
+                    <div class="password-requirements">
+                        <h4>Exigences du mot de passe :</h4>
+                        <ul>
+                            <li id="req-length">Au moins 8 caractères</li>
+                            <li id="req-uppercase">Une lettre majuscule</li>
+                            <li id="req-lowercase">Une lettre minuscule</li>
+                            <li id="req-number">Un chiffre</li>
+                        </ul>
+                    </div>
+                </div>
 
-            <button type="submit" class="btn-login" id="btnLogin">
-                Se connecter
-            </button>
+                <div class="form-group">
+                    <label for="confirmPassword">Confirmer le mot de passe</label>
+                    <input 
+                        type="password" 
+                        id="confirmPassword" 
+                        name="confirmPassword" 
+                        required
+                        autocomplete="new-password"
+                    >
+                </div>
 
-            <div class="loading-spinner" id="loading">
-                Connexion en cours...
-            </div>
-        </form>
+                <button type="submit" class="btn-login" id="btnChangePassword">
+                    Confirmer le changement
+                </button>
+
+                <div class="loading-spinner" id="loadingChangePassword">
+                    Modification en cours...
+                </div>
+            </form>
+        </div>
 
         <div class="footer">
             <p>Ligolo-ng Agent Management</p>
@@ -186,29 +381,83 @@
     </div>
 
     <script>
-        const form = document.getElementById('loginForm');
-        const btnLogin = document.getElementById('btnLogin');
-        const loading = document.getElementById('loading');
-        const alert = document.getElementById('alert');
+        let currentPassword = '';
+        let username = '';
 
-        function showAlert(message) {
+        const loginForm = document.getElementById('loginForm');
+        const changePasswordForm = document.getElementById('changePasswordForm');
+        const loginSection = document.getElementById('loginSection');
+        const changePasswordSection = document.getElementById('changePasswordSection');
+        const alert = document.getElementById('alert');
+        const logoSubtitle = document.getElementById('logoSubtitle');
+        const progressIndicator = document.getElementById('progressIndicator');
+        const newPasswordInput = document.getElementById('newPassword');
+        const confirmPasswordInput = document.getElementById('confirmPassword');
+
+        function showAlert(message, type = 'error') {
             alert.textContent = message;
-            alert.classList.add('show');
+            alert.className = `alert alert-${type} show`;
         }
 
         function hideAlert() {
             alert.classList.remove('show');
         }
 
-        form.addEventListener('submit', async (e) => {
+        function switchToPasswordChange() {
+            loginSection.classList.remove('active');
+            changePasswordSection.classList.add('active');
+            logoSubtitle.textContent = 'Changement de mot de passe requis';
+            progressIndicator.style.display = 'flex';
+            document.getElementById('step1').classList.add('completed');
+            document.getElementById('step2').classList.add('active');
+            
+            // Focus sur le champ nouveau mot de passe
+            setTimeout(() => {
+                document.getElementById('newPassword').focus();
+            }, 300);
+        }
+
+        // Validation du mot de passe en temps réel
+        newPasswordInput.addEventListener('input', () => {
+            const password = newPasswordInput.value;
+            
+            const lengthValid = password.length >= 8;
+            document.getElementById('req-length').classList.toggle('valid', lengthValid);
+            
+            const uppercaseValid = /[A-Z]/.test(password);
+            document.getElementById('req-uppercase').classList.toggle('valid', uppercaseValid);
+            
+            const lowercaseValid = /[a-z]/.test(password);
+            document.getElementById('req-lowercase').classList.toggle('valid', lowercaseValid);
+            
+            const numberValid = /[0-9]/.test(password);
+            document.getElementById('req-number').classList.toggle('valid', numberValid);
+        });
+
+        function validatePassword(password) {
+            const requirements = {
+                length: password.length >= 8,
+                uppercase: /[A-Z]/.test(password),
+                lowercase: /[a-z]/.test(password),
+                number: /[0-9]/.test(password)
+            };
+            
+            return Object.values(requirements).every(v => v);
+        }
+
+        // LOGIN FORM
+        loginForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             hideAlert();
 
-            const username = document.getElementById('username').value;
+            username = document.getElementById('username').value;
             const password = document.getElementById('password').value;
 
+            const btnLogin = document.getElementById('btnLogin');
+            const loadingLogin = document.getElementById('loadingLogin');
+
             btnLogin.disabled = true;
-            loading.classList.add('show');
+            loadingLogin.classList.add('show');
 
             try {
                 const response = await fetch('/login', {
@@ -222,17 +471,96 @@
                 const data = await response.json();
 
                 if (data.success) {
-                    window.location.href = data.redirect || '/dashboard';
+                    if (data.require_password_change) {
+                        // Mot de passe par défaut détecté
+                        currentPassword = password;
+                        showAlert('Mot de passe par défaut détecté. Veuillez le changer.', 'warning');
+                        setTimeout(() => {
+                            hideAlert();
+                            switchToPasswordChange();
+                        }, 2000);
+                    } else {
+                        // Connexion normale
+                        showAlert('Connexion réussie ! Redirection...', 'success');
+                        setTimeout(() => {
+                            window.location.href = data.redirect || '/dashboard';
+                        }, 1000);
+                    }
                 } else {
-                    showAlert(data.message || 'Identifiants incorrects');
+                    showAlert(data.message || 'Identifiants incorrects', 'error');
                     btnLogin.disabled = false;
-                    loading.classList.remove('show');
+                    loadingLogin.classList.remove('show');
                 }
             } catch (error) {
                 console.error('Erreur:', error);
-                showAlert('Erreur de connexion au serveur');
+                showAlert('Erreur de connexion au serveur', 'error');
                 btnLogin.disabled = false;
-                loading.classList.remove('show');
+                loadingLogin.classList.remove('show');
+            }
+        });
+
+        // CHANGE PASSWORD FORM
+        changePasswordForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            hideAlert();
+
+            const newPassword = document.getElementById('newPassword').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+
+            // Validation côté client
+            if (!validatePassword(newPassword)) {
+                showAlert('Le nouveau mot de passe ne respecte pas les exigences de sécurité', 'error');
+                return;
+            }
+
+            if (newPassword !== confirmPassword) {
+                showAlert('Les mots de passe ne correspondent pas', 'error');
+                return;
+            }
+
+            if (newPassword === currentPassword) {
+                showAlert('Le nouveau mot de passe doit être différent de l\'ancien', 'warning');
+                return;
+            }
+
+            const btnChangePassword = document.getElementById('btnChangePassword');
+            const loadingChangePassword = document.getElementById('loadingChangePassword');
+
+            btnChangePassword.disabled = true;
+            loadingChangePassword.classList.add('show');
+
+            try {
+                const response = await fetch('/api/auth/change-password', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ 
+                        current_password: currentPassword,
+                        new_password: newPassword 
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showAlert('Mot de passe changé avec succès ! Redirection...', 'success');
+                    document.getElementById('step2').classList.remove('active');
+                    document.getElementById('step2').classList.add('completed');
+                    
+                    setTimeout(() => {
+                        window.location.href = '/dashboard';
+                    }, 2000);
+                } else {
+                    showAlert(data.error || 'Erreur lors du changement de mot de passe', 'error');
+                    btnChangePassword.disabled = false;
+                    loadingChangePassword.classList.remove('show');
+                }
+            } catch (error) {
+                console.error('Erreur:', error);
+                showAlert('Erreur de connexion au serveur', 'error');
+                btnChangePassword.disabled = false;
+                loadingChangePassword.classList.remove('show');
             }
         });
     </script>

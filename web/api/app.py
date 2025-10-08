@@ -28,7 +28,8 @@ socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 AUTH_CONFIG = {
     'username': 'admin',
     'password_hash': '',
-    'session_timeout': 480
+    'session_timeout': 480,
+    'is_default_password': True  # Flag pour détecter si le mot de passe par défaut est utilisé
 }
 
 # =================================================================================================
@@ -44,20 +45,42 @@ def load_auth_config():
                 config = json.load(f)
                 AUTH_CONFIG['username'] = config.get('username', 'admin')
                 AUTH_CONFIG['password_hash'] = config.get('password_hash', '')
+                AUTH_CONFIG['is_default_password'] = config.get('is_default_password', True)
         else:
             default_password = 'rasppunzel'
             AUTH_CONFIG['password_hash'] = hashlib.sha256(default_password.encode()).hexdigest()
+            AUTH_CONFIG['is_default_password'] = True
             os.makedirs(os.path.dirname(config_file), exist_ok=True)
             with open(config_file, 'w') as f:
                 json.dump({
                     'username': AUTH_CONFIG['username'],
-                    'password_hash': AUTH_CONFIG['password_hash']
+                    'password_hash': AUTH_CONFIG['password_hash'],
+                    'is_default_password': AUTH_CONFIG['is_default_password']
                 }, f, indent=2)
             os.chmod(config_file, 0o600)
     except Exception as e:
         print(f"[!] Erreur chargement config auth: {e}")
         default_password = 'rasppunzel'
         AUTH_CONFIG['password_hash'] = hashlib.sha256(default_password.encode()).hexdigest()
+        AUTH_CONFIG['is_default_password'] = True
+
+
+def save_auth_config():
+    """Sauvegarde la configuration d'authentification"""
+    try:
+        config_file = '/opt/rasppunzel/config/auth.json'
+        os.makedirs(os.path.dirname(config_file), exist_ok=True)
+        with open(config_file, 'w') as f:
+            json.dump({
+                'username': AUTH_CONFIG['username'],
+                'password_hash': AUTH_CONFIG['password_hash'],
+                'is_default_password': AUTH_CONFIG['is_default_password']
+            }, f, indent=2)
+        os.chmod(config_file, 0o600)
+        return True
+    except Exception as e:
+        print(f"[!] Erreur sauvegarde config auth: {e}")
+        return False
 
 def verify_password(password, password_hash):
     """Vérifie un mot de passe contre son hash"""
@@ -110,10 +133,16 @@ def login():
             session['login_time'] = datetime.now().isoformat()
             session.permanent = True
             
+            # Vérifier si c'est le mot de passe par défaut
+            redirect_url = '/dashboard'
+            if AUTH_CONFIG.get('is_default_password', False):
+                redirect_url = '/change-password?first_login=true'
+            
             return jsonify({
                 'success': True,
                 'message': 'Connexion réussie',
-                'redirect': '/dashboard'
+                'redirect': redirect_url,
+                'require_password_change': AUTH_CONFIG.get('is_default_password', False)
             })
         else:
             return jsonify({
@@ -137,6 +166,84 @@ def logout():
 def dashboard():
     """Page principale du dashboard"""
     return render_template('dashboard.html')
+
+
+@app.route('/api/auth/change-password', methods=['POST'])
+@login_required
+def change_password():
+    """Change le mot de passe de l'utilisateur"""
+    try:
+        data = request.get_json()
+        current_password = data.get('current_password')
+        new_password = data.get('new_password')
+        
+        if not current_password or not new_password:
+            return jsonify({
+                'success': False,
+                'error': 'Tous les champs sont requis'
+            }), 400
+        
+        # Vérifier le mot de passe actuel
+        if not verify_password(current_password, AUTH_CONFIG['password_hash']):
+            return jsonify({
+                'success': False,
+                'error': 'Mot de passe actuel incorrect'
+            }), 401
+        
+        # Valider le nouveau mot de passe
+        if len(new_password) < 8:
+            return jsonify({
+                'success': False,
+                'error': 'Le mot de passe doit contenir au moins 8 caractères'
+            }), 400
+        
+        if not re.search(r'[A-Z]', new_password):
+            return jsonify({
+                'success': False,
+                'error': 'Le mot de passe doit contenir au moins une majuscule'
+            }), 400
+        
+        if not re.search(r'[a-z]', new_password):
+            return jsonify({
+                'success': False,
+                'error': 'Le mot de passe doit contenir au moins une minuscule'
+            }), 400
+        
+        if not re.search(r'[0-9]', new_password):
+            return jsonify({
+                'success': False,
+                'error': 'Le mot de passe doit contenir au moins un chiffre'
+            }), 400
+        
+        # Vérifier que le nouveau mot de passe est différent
+        if verify_password(new_password, AUTH_CONFIG['password_hash']):
+            return jsonify({
+                'success': False,
+                'error': 'Le nouveau mot de passe doit être différent de l\'ancien'
+            }), 400
+        
+        # Mettre à jour le mot de passe
+        AUTH_CONFIG['password_hash'] = hashlib.sha256(new_password.encode()).hexdigest()
+        AUTH_CONFIG['is_default_password'] = False
+        
+        # Sauvegarder
+        if save_auth_config():
+            return jsonify({
+                'success': True,
+                'message': 'Mot de passe changé avec succès'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'Erreur lors de la sauvegarde du mot de passe'
+            }), 500
+            
+    except Exception as e:
+        print(f"[!] Erreur change_password: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
 
 # =================================================================================================
@@ -229,7 +336,7 @@ def get_ligolo_routes():
     
     try:
         result = subprocess.run(
-            ['ip', 'route', 'show'],
+            ['/usr/sbin/ip', 'route', 'show'],
             capture_output=True,
             text=True,
             timeout=5
@@ -402,7 +509,7 @@ def get_ap_clients():
         # Méthode 2: ARP table (backup)
         if not clients:
             result = subprocess.run(
-                ['ip', 'neigh', 'show'],
+                ['/usr/sbin/ip', 'neigh', 'show'],
                 capture_output=True,
                 text=True,
                 timeout=5
@@ -499,7 +606,7 @@ def get_wifi_adapters():
                 # Mode WiFi (managed/monitor)
                 try:
                     iwconfig_result = subprocess.run(
-                        ['iwconfig', interface],
+                        ['/usr/sbin/iwconfig', interface],
                         capture_output=True,
                         text=True,
                         timeout=2
@@ -530,7 +637,7 @@ def detect_chipset(interface):
     try:
         # Via ethtool
         result = subprocess.run(
-            ['ethtool', '-i', interface],
+            ['/usr/sbin/ethtool', '-i', interface],
             capture_output=True,
             text=True,
             timeout=2
@@ -559,17 +666,17 @@ def set_monitor_mode(interface, enable=True):
     """Active ou désactive le mode monitor sur un interface"""
     try:
         # Désactiver l'interface
-        subprocess.run(['ip', 'link', 'set', interface, 'down'], timeout=5, check=True)
+        subprocess.run(['/usr/sbin/ip', 'link', 'set', interface, 'down'], timeout=5, check=True)
         
         if enable:
             # Activer le mode monitor
-            subprocess.run(['iw', 'dev', interface, 'set', 'type', 'monitor'], timeout=5, check=True)
+            subprocess.run(['/usr/sbin/iw', 'dev', interface, 'set', 'type', 'monitor'], timeout=5, check=True)
         else:
             # Revenir en mode managed
-            subprocess.run(['iw', 'dev', interface, 'set', 'type', 'managed'], timeout=5, check=True)
+            subprocess.run(['/usr/sbin/iw', 'dev', interface, 'set', 'type', 'managed'], timeout=5, check=True)
         
         # Réactiver l'interface
-        subprocess.run(['ip', 'link', 'set', interface, 'up'], timeout=5, check=True)
+        subprocess.run(['/usr/sbin/ip', 'link', 'set', interface, 'up'], timeout=5, check=True)
         
         return True
     except Exception as e:
@@ -583,11 +690,11 @@ def scan_wifi_networks(interface):
     
     try:
         # S'assurer que l'interface est up
-        subprocess.run(['ip', 'link', 'set', interface, 'up'], timeout=5)
+        subprocess.run(['/usr/sbin/ip', 'link', 'set', interface, 'up'], timeout=5)
         
         # Scanner
         result = subprocess.run(
-            ['iw', 'dev', interface, 'scan'],
+            ['/usr/sbin/iw', 'dev', interface, 'scan'],
             capture_output=True,
             text=True,
             timeout=30
@@ -914,7 +1021,7 @@ def api_toggle_interface(interface):
         
         action = 'up' if enable else 'down'
         result = subprocess.run(
-            ['ip', 'link', 'set', interface, action],
+            ['/usr/sbin/ip', 'link', 'set', interface, action],
             capture_output=True,
             text=True,
             timeout=5
