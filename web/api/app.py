@@ -168,6 +168,13 @@ def dashboard():
     return render_template('dashboard.html')
 
 
+@app.route('/change-password')
+@login_required
+def change_password_page():
+    """Page de changement de mot de passe"""
+    return render_template('change-password.html')
+
+
 @app.route('/api/auth/change-password', methods=['POST'])
 @login_required
 def change_password():
