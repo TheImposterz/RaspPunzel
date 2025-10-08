@@ -17,10 +17,14 @@
         .header {
             background: white;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            padding: 0 24px;
             position: sticky;
             top: 0;
             z-index: 100;
+        }
+
+        .header-top {
+            padding: 0 24px;
+            border-bottom: 1px solid #e2e8f0;
         }
 
         .header-content {
@@ -90,10 +94,57 @@
         .dropdown-item:hover { background: #f7fafc; }
         .dropdown-item.danger { color: #e53e3e; }
 
+        .nav-tabs {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            gap: 4px;
+            padding: 0 24px;
+        }
+
+        .nav-tab {
+            padding: 16px 24px;
+            background: none;
+            border: none;
+            border-bottom: 3px solid transparent;
+            color: #718096;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .nav-tab:hover {
+            color: #2d3748;
+            background: #f7fafc;
+        }
+
+        .nav-tab.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+
         .container {
             max-width: 1400px;
             margin: 0 auto;
             padding: 24px;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+            animation: fadeIn 0.3s;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
         .stats-grid {
@@ -125,6 +176,7 @@
 
         .stat-value.online { color: #38a169; }
         .stat-value.offline { color: #e53e3e; }
+        .stat-value.warning { color: #ed8936; }
 
         .main-grid {
             display: grid;
@@ -145,6 +197,9 @@
             border-bottom: 1px solid #e2e8f0;
             font-weight: 600;
             font-size: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
 
         .panel-body { padding: 20px; }
@@ -182,6 +237,13 @@
 
         .btn-secondary:hover { background: #e2e8f0; }
 
+        .btn-success {
+            background: #c6f6d5;
+            color: #22543d;
+        }
+
+        .btn-success:hover { background: #9ae6b4; }
+
         .btn-danger {
             background: #fff5f5;
             color: #e53e3e;
@@ -189,6 +251,13 @@
         }
 
         .btn-danger:hover { background: #fed7d7; }
+
+        .btn-warning {
+            background: #fef5e7;
+            color: #c05621;
+        }
+
+        .btn-warning:hover { background: #feebc8; }
 
         .list-empty {
             text-align: center;
@@ -200,8 +269,10 @@
         .list-item {
             padding: 16px;
             border-bottom: 1px solid #e2e8f0;
+            transition: background 0.2s;
         }
 
+        .list-item:hover { background: #f7fafc; }
         .list-item:last-child { border-bottom: none; }
 
         .list-item-title {
@@ -213,6 +284,35 @@
         .list-item-meta {
             font-size: 13px;
             color: #718096;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .badge-info {
+            background: #bee3f8;
+            color: #2c5282;
+        }
+
+        .badge-success {
+            background: #c6f6d5;
+            color: #22543d;
+        }
+
+        .badge-danger {
+            background: #fed7d7;
+            color: #742a2a;
+        }
+
+        .badge-warning {
+            background: #feebc8;
+            color: #7c2d12;
         }
 
         .terminal {
@@ -301,7 +401,11 @@
         .info-row {
             display: flex;
             justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #f7fafc;
         }
+
+        .info-row:last-child { border-bottom: none; }
 
         .info-label {
             color: #718096;
@@ -319,6 +423,38 @@
             gap: 12px;
         }
 
+        .adapter-card {
+            background: #f7fafc;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 16px;
+            transition: all 0.2s;
+        }
+
+        .adapter-card:hover {
+            border-color: #667eea;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
+        }
+
+        .adapter-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .adapter-name {
+            font-weight: 600;
+            font-size: 15px;
+            color: #2d3748;
+        }
+
+        .adapter-info {
+            font-size: 13px;
+            color: #718096;
+            margin-bottom: 4px;
+        }
+
         @media (max-width: 1024px) {
             .main-grid { grid-template-columns: 1fr; }
         }
@@ -326,100 +462,194 @@
         @media (max-width: 768px) {
             .stats-grid { grid-template-columns: repeat(2, 1fr); }
             .quick-grid { grid-template-columns: 1fr; }
+            .nav-tabs { overflow-x: auto; }
         }
     </style>
 </head>
 <body>
     <div class="header">
-        <div class="header-content">
-            <div class="header-left">
-                <h1>🍓 RaspPunzel</h1>
-            </div>
-            <div class="header-right">
-                <div class="user-menu">
-                    <div class="user-button" onclick="toggleUserMenu()">
-                        <div class="user-avatar">A</div>
-                        <span>Admin</span>
-                        <span>▼</span>
-                    </div>
-                    <div class="dropdown-menu" id="userDropdown">
-                        <div class="dropdown-item" onclick="reloadPage()">🔄 Actualiser</div>
-                        <div class="dropdown-item danger" onclick="logout()">🚪 Déconnexion</div>
+        <div class="header-top">
+            <div class="header-content">
+                <div class="header-left">
+                    <h1>🍓 RaspPunzel</h1>
+                </div>
+                <div class="header-right">
+                    <div class="user-menu">
+                        <div class="user-button" onclick="toggleUserMenu()">
+                            <div class="user-avatar">A</div>
+                            <span>Admin</span>
+                            <span>▼</span>
+                        </div>
+                        <div class="dropdown-menu" id="userDropdown">
+                            <div class="dropdown-item" onclick="reloadPage()">🔄 Actualiser</div>
+                            <div class="dropdown-item danger" onclick="logout()">🚪 Déconnexion</div>
+                        </div>
                     </div>
                 </div>
             </div>
+        </div>
+        <div class="nav-tabs">
+            <button class="nav-tab active" onclick="switchTab('ligolo')">
+                <span>🔗</span> Ligolo-ng
+            </button>
+            <button class="nav-tab" onclick="switchTab('wifi-ap')">
+                <span>📡</span> WiFi Access Point
+            </button>
+            <button class="nav-tab" onclick="switchTab('pentest')">
+                <span>🎯</span> Pentest Adapters
+            </button>
         </div>
     </div>
 
     <div class="container">
-        <div class="stats-grid">
-            <div class="stat-card">
-                <div class="stat-label">Agent Ligolo</div>
-                <div class="stat-value" id="agentStatus">--</div>
+        <!-- TAB LIGOLO -->
+        <div id="tab-ligolo" class="tab-content active">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-label">Agent Ligolo</div>
+                    <div class="stat-value" id="agentStatus">--</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Connexion Proxy</div>
+                    <div class="stat-value" id="proxyConnection">--</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Routes Actives</div>
+                    <div class="stat-value" id="routesCount">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Uptime</div>
+                    <div class="stat-value" id="uptime">--</div>
+                </div>
             </div>
-            <div class="stat-card">
-                <div class="stat-label">CPU</div>
-                <div class="stat-value" id="cpuUsage">--%</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-label">Mémoire</div>
-                <div class="stat-value" id="memoryUsage">--%</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-label">Uptime</div>
-                <div class="stat-value" id="uptime">--</div>
+
+            <div class="main-grid">
+                <div>
+                    <div class="panel" style="margin-bottom: 24px;">
+                        <div class="panel-header">Contrôle Ligolo-ng</div>
+                        <div class="panel-body">
+                            <div class="btn-group">
+                                <button class="btn btn-success" onclick="startLigolo()">▶️ Démarrer</button>
+                                <button class="btn btn-secondary" onclick="restartLigolo()">🔄 Redémarrer</button>
+                                <button class="btn btn-danger" onclick="stopLigolo()">⏹️ Arrêter</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="panel">
+                        <div class="panel-header">
+                            <span>Routes réseau</span>
+                            <button class="btn btn-secondary" onclick="refreshRoutes()" style="padding: 6px 12px; font-size: 12px;">🔄</button>
+                        </div>
+                        <div id="routesList">
+                            <div class="list-empty">Chargement des routes...</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="panel" style="margin-bottom: 24px;">
+                        <div class="panel-header">Actions rapides</div>
+                        <div class="panel-body">
+                            <div class="quick-grid">
+                                <button class="btn btn-secondary" onclick="showLogs()">📋 Logs</button>
+                                <button class="btn btn-secondary" onclick="showNetworkInfo()">🌐 Réseau</button>
+                                <button class="btn btn-secondary" onclick="exportConfig()">💾 Export</button>
+                                <button class="btn btn-secondary" onclick="refreshRoutes()">🔄 Routes</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="panel">
+                        <div class="panel-header">Configuration Ligolo</div>
+                        <div class="panel-body">
+                            <div class="info-grid">
+                                <div class="info-row">
+                                    <span class="info-label">Proxy Host</span>
+                                    <span class="info-value" id="proxyHost">--</span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-label">Proxy Port</span>
+                                    <span class="info-value" id="proxyPort">--</span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-label">Version</span>
+                                    <span class="info-value" id="ligoloVersion">--</span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-label">PID</span>
+                                    <span class="info-value" id="ligoloPid">--</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
-        <div class="main-grid">
-            <div>
-                <div class="panel" style="margin-bottom: 24px;">
-                    <div class="panel-header">Contrôles</div>
-                    <div class="panel-body">
-                        <div class="btn-group">
-                            <button class="btn btn-primary" onclick="startServices()">▶️ Démarrer</button>
-                            <button class="btn btn-secondary" onclick="restartServices()">🔄 Redémarrer</button>
-                            <button class="btn btn-danger" onclick="stopServices()">⏹️ Arrêter</button>
-                        </div>
-                    </div>
+        <!-- TAB WIFI AP -->
+        <div id="tab-wifi-ap" class="tab-content">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-label">Hostapd</div>
+                    <div class="stat-value" id="hostapdStatus">--</div>
                 </div>
-
-                <div class="panel">
-                    <div class="panel-header">Routes réseau</div>
-                    <div id="routesList">
-                        <div class="list-empty">Aucune route configurée</div>
-                    </div>
+                <div class="stat-card">
+                    <div class="stat-label">DNSMasq</div>
+                    <div class="stat-value" id="dnsmasqStatus">--</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Clients Connectés</div>
+                    <div class="stat-value" id="clientsCount">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Interface AP</div>
+                    <div class="stat-value" id="apInterface" style="font-size: 18px;">--</div>
                 </div>
             </div>
 
-            <div>
-                <div class="panel" style="margin-bottom: 24px;">
-                    <div class="panel-header">Actions rapides</div>
-                    <div class="panel-body">
-                        <div class="quick-grid">
-                            <button class="btn btn-secondary" onclick="showLogs()">📋 Logs</button>
-                            <button class="btn btn-secondary" onclick="showNetworkInfo()">🌐 Réseau</button>
-                            <button class="btn btn-secondary" onclick="exportConfig()">💾 Export</button>
-                            <button class="btn btn-secondary" onclick="restartLigolo()">🔄 Ligolo</button>
+            <div class="main-grid">
+                <div>
+                    <div class="panel" style="margin-bottom: 24px;">
+                        <div class="panel-header">Contrôle Access Point</div>
+                        <div class="panel-body">
+                            <div class="btn-group">
+                                <button class="btn btn-success" onclick="startAP()">▶️ Démarrer AP</button>
+                                <button class="btn btn-secondary" onclick="restartAP()">🔄 Redémarrer</button>
+                                <button class="btn btn-danger" onclick="stopAP()">⏹️ Arrêter AP</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="panel">
+                        <div class="panel-header">Clients connectés</div>
+                        <div id="clientsList">
+                            <div class="list-empty">Aucun client connecté</div>
                         </div>
                     </div>
                 </div>
 
-                <div class="panel">
-                    <div class="panel-header">Informations système</div>
-                    <div class="panel-body">
-                        <div class="info-grid">
-                            <div class="info-row">
-                                <span class="info-label">Hostname</span>
-                                <span class="info-value" id="hostname">--</span>
-                            </div>
-                            <div class="info-row">
-                                <span class="info-label">Adresse IP</span>
-                                <span class="info-value" id="ipAddress">--</span>
-                            </div>
-                            <div class="info-row">
-                                <span class="info-label">Version Ligolo</span>
-                                <span class="info-value" id="ligoloVersion">--</span>
+                <div>
+                    <div class="panel">
+                        <div class="panel-header">Configuration AP</div>
+                        <div class="panel-body">
+                            <div class="info-grid">
+                                <div class="info-row">
+                                    <span class="info-label">SSID</span>
+                                    <span class="info-value">PWNBOX_ADMIN</span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-label">IP Gateway</span>
+                                    <span class="info-value">10.0.0.1</span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-label">DHCP Range</span>
+                                    <span class="info-value">10.0.0.2-30</span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-label">Canal</span>
+                                    <span class="info-value">11</span>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -427,13 +657,86 @@
             </div>
         </div>
 
+        <!-- TAB PENTEST -->
+        <div id="tab-pentest" class="tab-content">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-label">Adapters Détectés</div>
+                    <div class="stat-value" id="adaptersCount">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Mode Monitor</div>
+                    <div class="stat-value" id="monitorModeCount">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">CPU</div>
+                    <div class="stat-value" id="cpuUsage">--%</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Mémoire</div>
+                    <div class="stat-value" id="memoryUsage">--%</div>
+                </div>
+            </div>
+
+            <div class="main-grid">
+                <div>
+                    <div class="panel">
+                        <div class="panel-header">
+                            <span>Adapters WiFi</span>
+                            <button class="btn btn-secondary" onclick="refreshAdapters()" style="padding: 6px 12px; font-size: 12px;">🔄</button>
+                        </div>
+                        <div class="panel-body">
+                            <div id="adaptersList">
+                                <div class="list-empty">Chargement des adapters...</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="panel" style="margin-bottom: 24px;">
+                        <div class="panel-header">Actions rapides</div>
+                        <div class="panel-body">
+                            <div class="quick-grid">
+                                <button class="btn btn-secondary" onclick="showLogs()">📋 Logs</button>
+                                <button class="btn btn-secondary" onclick="showNetworkInfo()">🌐 Réseau</button>
+                                <button class="btn btn-secondary" onclick="exportConfig()">💾 Export</button>
+                                <button class="btn btn-warning" onclick="scanNetworks()">📡 Scan</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="panel">
+                        <div class="panel-header">Informations système</div>
+                        <div class="panel-body">
+                            <div class="info-grid">
+                                <div class="info-row">
+                                    <span class="info-label">Hostname</span>
+                                    <span class="info-value" id="hostname">--</span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-label">Adresse IP</span>
+                                    <span class="info-value" id="ipAddress">--</span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-label">Kernel</span>
+                                    <span class="info-value" id="kernelVersion">--</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TERMINAL (commun à tous les onglets) -->
         <div class="terminal">
             <div class="terminal-header">
                 <span>Terminal</span>
                 <button class="btn btn-secondary" onclick="clearTerminal()" style="padding: 4px 12px; font-size: 12px;">Effacer</button>
             </div>
             <div class="terminal-body" id="terminal">
-                <div class="terminal-line info">RaspPunzel Dashboard v2.0</div>
+                <div class="terminal-line info">RaspPunzel Dashboard v2.1 - Multi-sections</div>
                 <div class="terminal-line">Connexion au serveur...</div>
             </div>
         </div>
@@ -447,6 +750,31 @@
     <script>
         const API_BASE = window.location.origin;
         let socket;
+        let currentTab = 'ligolo';
+
+        // Navigation entre onglets
+        function switchTab(tabName) {
+            currentTab = tabName;
+            
+            // Masquer tous les onglets
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Désactiver tous les boutons
+            document.querySelectorAll('.nav-tab').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            // Activer l'onglet sélectionné
+            document.getElementById(`tab-${tabName}`).classList.add('active');
+            event.target.closest('.nav-tab').classList.add('active');
+            
+            addToTerminal(`Navigation vers: ${tabName}`, 'info');
+            
+            // Charger les données spécifiques à l'onglet
+            loadTabData(tabName);
+        }
 
         function toggleUserMenu() {
             document.getElementById('userDropdown').classList.toggle('show');
@@ -512,6 +840,13 @@
                 const data = await response.json();
                 
                 if (data.success) {
+                    // Stats communes
+                    document.getElementById('cpuUsage').textContent = `${Math.round(data.system.cpu_percent)}%`;
+                    document.getElementById('memoryUsage').textContent = `${Math.round(data.system.memory_percent)}%`;
+                    document.getElementById('uptime').textContent = data.system.uptime || '--';
+                    document.getElementById('hostname').textContent = data.system.hostname || '--';
+                    
+                    // Ligolo
                     const agentStatus = document.getElementById('agentStatus');
                     if (data.services && data.services['ligolo-agent']) {
                         agentStatus.textContent = 'ACTIF';
@@ -523,74 +858,218 @@
                         agentStatus.classList.remove('online');
                     }
                     
-                    if (data.system) {
-                        document.getElementById('cpuUsage').textContent = `${Math.round(data.system.cpu_percent)}%`;
-                        document.getElementById('memoryUsage').textContent = `${Math.round(data.system.memory_percent)}%`;
-                        document.getElementById('uptime').textContent = data.system.uptime || '--';
-                        document.getElementById('hostname').textContent = data.system.hostname || '--';
-                        
-                        if (data.system.network_interfaces) {
-                            const interfaces = Object.values(data.system.network_interfaces);
-                            const firstInterface = interfaces.find(i => i.ip && i.ip !== '127.0.0.1');
-                            document.getElementById('ipAddress').textContent = firstInterface?.ip || '--';
-                        }
+                    // WiFi AP
+                    updateAPStatus(data.services);
+                    
+                    // Connexion proxy
+                    if (data.ligolo && data.ligolo.connection && data.ligolo.connection.connected) {
+                        document.getElementById('proxyConnection').textContent = 'CONNECTÉ';
+                        document.getElementById('proxyConnection').classList.add('online');
+                    } else {
+                        document.getElementById('proxyConnection').textContent = 'DÉCONNECTÉ';
+                        document.getElementById('proxyConnection').classList.add('offline');
                     }
                     
                     if (data.ligolo) {
+                        document.getElementById('proxyHost').textContent = data.ligolo.proxy_host || 'Non configuré';
+                        document.getElementById('proxyPort').textContent = data.ligolo.proxy_port || '--';
                         document.getElementById('ligoloVersion').textContent = data.ligolo.version || '--';
+                        document.getElementById('ligoloPid').textContent = data.ligolo.pid || '--';
                     }
                     
+                    if (data.system.network_interfaces) {
+                        const interfaces = Object.values(data.system.network_interfaces);
+                        const firstInterface = interfaces.find(i => i.ip && i.ip !== '127.0.0.1');
+                        document.getElementById('ipAddress').textContent = firstInterface?.ip || '--';
+                    }
+                    
+                    // Routes
+                    document.getElementById('routesCount').textContent = data.routes_count || 0;
                     updateRoutes(data.routes);
+                    
+                    // Adapters
+                    loadAdapters();
                 }
             } catch (error) {
                 addToTerminal(`Erreur: ${error.message}`, 'error');
+            }
+        }
+
+        function updateAPStatus(services) {
+            const hostapdStatus = document.getElementById('hostapdStatus');
+            const dnsmasqStatus = document.getElementById('dnsmasqStatus');
+            
+            if (services && services.hostapd) {
+                hostapdStatus.textContent = 'ACTIF';
+                hostapdStatus.classList.add('online');
+                hostapdStatus.classList.remove('offline');
+            } else {
+                hostapdStatus.textContent = 'INACTIF';
+                hostapdStatus.classList.add('offline');
+                hostapdStatus.classList.remove('online');
+            }
+            
+            if (services && services.dnsmasq) {
+                dnsmasqStatus.textContent = 'ACTIF';
+                dnsmasqStatus.classList.add('online');
+                dnsmasqStatus.classList.remove('offline');
+            } else {
+                dnsmasqStatus.textContent = 'INACTIF';
+                dnsmasqStatus.classList.add('offline');
+                dnsmasqStatus.classList.remove('online');
+            }
+        }
+
+        function loadTabData(tabName) {
+            switch(tabName) {
+                case 'ligolo':
+                    refreshRoutes();
+                    break;
+                case 'wifi-ap':
+                    loadAPClients();
+                    break;
+                case 'pentest':
+                    loadAdapters();
+                    break;
             }
         }
 
         function updateRoutes(routes) {
             const routesList = document.getElementById('routesList');
-            if (!routes || routes.length === 0) {
-                routesList.innerHTML = '<div class="list-empty">Aucune route configurée</div>';
+            
+            if (!routes || !Array.isArray(routes) || routes.length === 0) {
+                routesList.innerHTML = '<div class="list-empty">Aucune route configurée<br><small style="margin-top: 8px; display: block;">Vérifiez que l\'agent Ligolo est actif et connecté</small></div>';
                 return;
             }
-            routesList.innerHTML = routes.map(route => `
-                <div class="list-item">
-                    <div class="list-item-title">${route.destination || route.raw}</div>
-                    <div class="list-item-meta">
-                        ${route.interface ? `Interface: ${route.interface}` : ''}
-                        ${route.gateway ? ` | Gateway: ${route.gateway}` : ''}
+            
+            routesList.innerHTML = routes.map((route, index) => {
+                const destination = route.destination || route.network || route.subnet || 'N/A';
+                const interfaceName = route.interface || route.dev || route.iface || 'N/A';
+                const gateway = route.gateway || route.via || route.gw || 'N/A';
+                const type = route.type || 'unknown';
+                
+                let badgeClass = 'badge-info';
+                if (type === 'ligolo') badgeClass = 'badge-success';
+                else if (type === 'default') badgeClass = 'badge-warning';
+                
+                return `
+                    <div class="list-item">
+                        <div class="list-item-title">
+                            🌐 ${destination}
+                            <span class="badge ${badgeClass}">${type}</span>
+                        </div>
+                        <div class="list-item-meta">
+                            Interface: <strong>${interfaceName}</strong>
+                            ${gateway !== 'N/A' ? ` | Gateway: <strong>${gateway}</strong>` : ''}
+                        </div>
                     </div>
-                </div>
-            `).join('');
+                `;
+            }).join('');
         }
 
-        async function startServices() {
+        async function loadAdapters() {
             try {
-                addToTerminal('Démarrage des services...', 'info');
-                const response = await fetch(`${API_BASE}/api/services/start`, { method: 'POST' });
+                const response = await fetch(`${API_BASE}/api/network/info`);
                 const data = await response.json();
+                
+                if (data.success && data.interfaces) {
+                    const wifiInterfaces = Object.entries(data.interfaces).filter(([name, info]) => 
+                        name.startsWith('wlan') || name.startsWith('wlx')
+                    );
+                    
+                    document.getElementById('adaptersCount').textContent = wifiInterfaces.length;
+                    
+                    const adaptersList = document.getElementById('adaptersList');
+                    
+                    if (wifiInterfaces.length === 0) {
+                        adaptersList.innerHTML = '<div class="list-empty">Aucun adapter WiFi détecté</div>';
+                        return;
+                    }
+                    
+                    adaptersList.innerHTML = wifiInterfaces.map(([name, info]) => {
+                        let ip = 'N/A';
+                        let status = 'down';
+                        
+                        if (info.addresses && info.addresses.length > 0) {
+                            const ipv4 = info.addresses.find(addr => addr.type === 'ipv4');
+                            if (ipv4 && ipv4.ip) ip = ipv4.ip;
+                        } else if (info.ip) {
+                            ip = info.ip;
+                        }
+                        
+                        if (info.status) status = info.status;
+                        
+                        const statusBadge = status === 'up' ? 'badge-success' : 'badge-danger';
+                        
+                        return `
+                            <div class="adapter-card">
+                                <div class="adapter-header">
+                                    <span class="adapter-name">${name}</span>
+                                    <span class="badge ${statusBadge}">${status.toUpperCase()}</span>
+                                </div>
+                                <div class="adapter-info">IP: ${ip}</div>
+                                <div class="adapter-info">Netmask: ${info.netmask || 'N/A'}</div>
+                                <div style="margin-top: 12px;">
+                                    <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 12px; margin-right: 8px;" onclick="toggleMonitorMode('${name}')">
+                                        🎯 Monitor
+                                    </button>
+                                    <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 12px;" onclick="toggleInterface('${name}')">
+                                        ${status === 'up' ? '⏹️ Down' : '▶️ Up'}
+                                    </button>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                }
+            } catch (error) {
+                addToTerminal(`Erreur chargement adapters: ${error.message}`, 'error');
+            }
+        }
+
+        async function loadAPClients() {
+            // Simuler pour le moment - à implémenter côté backend
+            const clientsList = document.getElementById('clientsList');
+            clientsList.innerHTML = '<div class="list-empty">Aucun client connecté</div>';
+            document.getElementById('clientsCount').textContent = '0';
+        }
+
+        async function refreshRoutes() {
+            try {
+                addToTerminal('Actualisation des routes...', 'info');
+                const response = await fetch(`${API_BASE}/api/routes`);
+                const data = await response.json();
+                
                 if (data.success) {
-                    addToTerminal('✓ Services démarrés', 'success');
-                    showToast('Services démarrés');
-                    setTimeout(loadSystemStatus, 2000);
+                    updateRoutes(data.routes);
+                    showToast('Routes actualisées');
+                    addToTerminal(`✓ ${data.routes ? data.routes.length : 0} route(s) récupérée(s)`, 'success');
                 } else {
-                    addToTerminal('✗ Erreur', 'error');
-                    showToast('Erreur', 'error');
+                    addToTerminal('✗ Erreur lors de la récupération des routes', 'error');
                 }
             } catch (error) {
                 addToTerminal(`Erreur: ${error.message}`, 'error');
             }
         }
 
-        async function stopServices() {
-            if (!confirm('Arrêter tous les services ?')) return;
+        async function refreshAdapters() {
+            addToTerminal('Actualisation des adapters WiFi...', 'info');
+            await loadAdapters();
+            showToast('Adapters actualisés');
+        }
+
+        // Ligolo Controls
+        async function startLigolo() {
             try {
-                addToTerminal('Arrêt des services...', 'warning');
-                const response = await fetch(`${API_BASE}/api/services/stop`, { method: 'POST' });
+                addToTerminal('Démarrage Ligolo...', 'info');
+                const response = await fetch(`${API_BASE}/api/services/start`, { 
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({services: ['ligolo-agent']})
+                });
                 const data = await response.json();
                 if (data.success) {
-                    addToTerminal('✓ Services arrêtés', 'warning');
-                    showToast('Services arrêtés', 'warning');
+                    addToTerminal('✓ Ligolo démarré', 'success');
+                    showToast('Ligolo démarré');
                     setTimeout(loadSystemStatus, 2000);
                 }
             } catch (error) {
@@ -598,15 +1077,20 @@
             }
         }
 
-        async function restartServices() {
+        async function stopLigolo() {
+            if (!confirm('Arrêter l\'agent Ligolo ?')) return;
             try {
-                addToTerminal('Redémarrage...', 'info');
-                const response = await fetch(`${API_BASE}/api/services/restart`, { method: 'POST' });
+                addToTerminal('Arrêt Ligolo...', 'warning');
+                const response = await fetch(`${API_BASE}/api/services/stop`, { 
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({services: ['ligolo-agent']})
+                });
                 const data = await response.json();
                 if (data.success) {
-                    addToTerminal('✓ Services redémarrés', 'success');
-                    showToast('Redémarrage réussi');
-                    setTimeout(loadSystemStatus, 3000);
+                    addToTerminal('✓ Ligolo arrêté', 'warning');
+                    showToast('Ligolo arrêté', 'warning');
+                    setTimeout(loadSystemStatus, 2000);
                 }
             } catch (error) {
                 addToTerminal(`Erreur: ${error.message}`, 'error');
@@ -628,13 +1112,90 @@
             }
         }
 
+        // WiFi AP Controls
+        async function startAP() {
+            try {
+                addToTerminal('Démarrage Access Point...', 'info');
+                const response = await fetch(`${API_BASE}/api/services/start`, { 
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({services: ['hostapd', 'dnsmasq']})
+                });
+                const data = await response.json();
+                if (data.success) {
+                    addToTerminal('✓ Access Point démarré', 'success');
+                    showToast('Access Point démarré');
+                    setTimeout(loadSystemStatus, 2000);
+                }
+            } catch (error) {
+                addToTerminal(`Erreur: ${error.message}`, 'error');
+            }
+        }
+
+        async function stopAP() {
+            if (!confirm('Arrêter l\'Access Point ?')) return;
+            try {
+                addToTerminal('Arrêt Access Point...', 'warning');
+                const response = await fetch(`${API_BASE}/api/services/stop`, { 
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({services: ['hostapd', 'dnsmasq']})
+                });
+                const data = await response.json();
+                if (data.success) {
+                    addToTerminal('✓ Access Point arrêté', 'warning');
+                    showToast('Access Point arrêté', 'warning');
+                    setTimeout(loadSystemStatus, 2000);
+                }
+            } catch (error) {
+                addToTerminal(`Erreur: ${error.message}`, 'error');
+            }
+        }
+
+        async function restartAP() {
+            try {
+                addToTerminal('Redémarrage Access Point...', 'info');
+                const response = await fetch(`${API_BASE}/api/services/restart`, { 
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({services: ['hostapd', 'dnsmasq']})
+                });
+                const data = await response.json();
+                if (data.success) {
+                    addToTerminal('✓ Access Point redémarré', 'success');
+                    showToast('Access Point redémarré');
+                    setTimeout(loadSystemStatus, 3000);
+                }
+            } catch (error) {
+                addToTerminal(`Erreur: ${error.message}`, 'error');
+            }
+        }
+
+        // Pentest Adapter Controls
+        async function toggleMonitorMode(interfaceName) {
+            addToTerminal(`Mode monitor pour ${interfaceName} - Fonctionnalité à implémenter`, 'warning');
+            showToast('Fonctionnalité en développement', 'warning');
+        }
+
+        async function toggleInterface(interfaceName) {
+            addToTerminal(`Toggle interface ${interfaceName} - Fonctionnalité à implémenter`, 'warning');
+            showToast('Fonctionnalité en développement', 'warning');
+        }
+
+        async function scanNetworks() {
+            addToTerminal('Scan des réseaux WiFi - Fonctionnalité à implémenter', 'warning');
+            showToast('Fonctionnalité en développement', 'warning');
+        }
+
+        // Utility functions
         async function showLogs() {
             try {
                 const response = await fetch(`${API_BASE}/api/logs`);
                 const data = await response.json();
                 if (data.success && data.logs) {
                     addToTerminal('=== LOGS SYSTÈME ===', 'info');
-                    const recentLogs = data.logs.slice(-20);
+                    const logs = Array.isArray(data.logs) ? data.logs : data.logs.ligolo || [];
+                    const recentLogs = logs.slice(-20);
                     if (recentLogs.length === 0) {
                         addToTerminal('Aucun log disponible', 'warning');
                     } else {
@@ -707,11 +1268,13 @@
             }
         }
 
+        // Initialisation
         document.addEventListener('DOMContentLoaded', () => {
             initializeSocket();
             setInterval(loadSystemStatus, 30000);
         });
 
+        // Raccourcis clavier
         document.addEventListener('keydown', (e) => {
             if (e.ctrlKey && e.key === 'l') {
                 e.preventDefault();
