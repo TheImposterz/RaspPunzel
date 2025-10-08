@@ -13,7 +13,7 @@ LIGOLO_RETRY_DELAY="10"
 LIGOLO_AUTO_RESTART="true"
 
 # Network interfaces (auto-detected)
-MAC_ETH0="08:00:27:f2:5b:9c"
+MAC_ETH0="08:00:27:b6:b2:08"
 MAC_WLAN0="00:00:00:00:00:00"  # Not used in VM
 WLAN_INTERFACE_ADMIN="none"    # No WiFi in VM
 WLAN_INTERFACE_ALFA_NEH="none"
