@@ -1,753 +1,387 @@
-# 🚀 RaspPunzel
+# 🍓 RaspPunzel
 
-**Professional Penetration Testing Platform for Raspberry Pi**
+**Raspberry Pi Penetration Testing Platform**
 
-A discrete and autonomous penetration testing implant designed for red team operations, security assessments, and authorized network evaluations.
+Transform your Raspberry Pi into a portable pentest drop box with Ligolo-ng tunneling, WiFi hotspot capabilities, and wireless security testing tools.
 
+![img](/img/archi.svg)
 
-![alt text](./img/archi.svg)
-
-
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![License: GPL V3](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Raspberry%20Pi-red.svg)](https://www.raspberrypi.org/)
-[![Python](https://img.shields.io/badge/Python-3.9%2B-blue.svg)](https://www.python.org/)
 
 ---
 
-## 📋 Table of Contents
+## 📋 What is RaspPunzel?
 
-- [Overview](#-overview)
-- [Features](#-features)
-- [Hardware Requirements](#-hardware-requirements)
-- [Operating Modes](#-operating-modes)
-- [Installation](#-installation)
-- [Configuration](#-configuration)
-- [Usage](#-usage)
-- [Web Dashboard](#-web-dashboard)
-- [Management](#-management)
-- [Troubleshooting](#-troubleshooting)
-- [Legal Notice](#%EF%B8%8F-legal-notice)
-- [Contributing](#-contributing)
-- [License](#-license)
+A discrete penetration testing implant that provides:
+
+- 🔗 **Remote Network Pivot** - Encrypted tunneling via Ligolo-ng
+- 📡 **WiFi Access Point** - Hidden admin hotspot for on-site access
+- 🎯 **WiFi Pentesting** - Complete wireless security assessment toolkit
 
 ---
 
-## 🎯 Overview
+## 🛠️ Hardware Needed
 
-RaspPunzel transforms a Raspberry Pi into a powerful, portable penetration testing platform with three distinct operating modes:
-
-1. **Network Pivot Mode** - Remote access via Ligolo-ng tunneling
-2. **WiFi Hotspot Mode** - On-site wireless access point
-3. **WiFi Pentest Mode** - Comprehensive wireless security testing
-
-The platform is designed for professional security assessments, red team operations, and authorized penetration testing engagements.
+| Component | Specification |
+|-----------|---------------|
+| **Raspberry Pi** | Model 3B+ or 4 (2GB+ RAM) |
+| **MicroSD Card** | 64GB Class 10 minimum |
+| **WiFi Adapters** | 2x USB adapters (Alfa AWUS036NEH/ACH recommended) |
+| **Power Supply** | 5V 3A official power supply |
 
 ---
 
-## ✨ Features
+## 🚀 Quick Start
 
-### Core Capabilities
+```bash
+# 1. Clone repository
+git clone https://github.com/TheImposterz/RaspPunzel.git
+cd RaspPunzel
 
-- 🌐 **Ligolo-ng Network Tunneling** - Secure remote pivot with encrypted connections
-- 📡 **Dual WiFi Management** - Simultaneous admin AP and target interface
-- 🔒 **WPA/WPA2/WPS Testing** - Complete wireless security assessment suite
-- 🎯 **Evil Twin Attacks** - Rogue access point deployment
-- 📊 **Web Dashboard** - Real-time monitoring and control interface
-- 🔧 **Automated Setup** - One-command installation and configuration
-- 📱 **Multi-Device Support** - Comprehensive WiFi adapter compatibility
+# 2. Run installation
+sudo ./install.sh
 
+# 3. Configure Ligolo-ng agent
+sudo ./scripts/configure-ligolo.sh
 
-## 🛠️ Hardware Requirements
-
-### Required Components
-
-| Component | Specification | Status |
-|-----------|--------------|---------|
-| **Raspberry Pi** | Model 3B+ or 4 (2GB+ RAM) | Required |
-| **MicroSD Card** | 64GB Class 10 minimum | Required |
-| **Power Supply** | 5V 3A USB-C (Pi 4) or Micro-USB (Pi 3) | Required |
-| **WiFi Adapters** | 2x USB adapters with monitor mode | Required |
-
-### Recommended WiFi Adapters
-
-**Primary Adapters (Recommended):**
-- **Alfa AWUS036NEH** - Ralink RT3070 (2.4GHz) - Excellent for pentesting
-- **Alfa AWUS036ACH** - Realtek RTL8812AU (2.4/5GHz) - Dual-band
-- **BrosTrend AC1L AC1200** - Suitable for AP mode
-
-**Alternative Adapters:**
-- TP-Link AC600 series
-- Panda PAU09
-- Any adapter with confirmed monitor mode support
-
-### Optional Components
-
-- **Enclosure** - Discrete case for field deployment
-- **Power Bank** - 10,000mAh+ for portable operations
-- **Cooling** - Heatsinks or small fan for extended operations
-- **Ethernet Cable** - For wired network access
+# 4. Access web dashboard
+http://<raspberry-pi-ip>:8080
+# Default login: admin / rasppunzel
+```
 
 ---
 
 ## 🎮 Operating Modes
 
-### Mode 1: Remote Network Pivot
+### Mode 1: Network Pivot (Ligolo-ng)
 
-Establish encrypted tunneling via Ligolo-ng for remote network access.
+Establish encrypted tunnel for remote network access.
 
-**Use Cases:**
-- Remote command and control
-- Internal network pivoting
-- Post-exploitation persistence
-- Covert network access
-
-**Features:**
-- Encrypted agent-proxy communication
-- Flexible proxy hosting (direct IP, ngrok, SSH forwarding)
-- Port 443 (HTTPS) for firewall evasion
-- Auto-reconnection on disconnect
-- Multi-network routing
-
-### Mode 2: On-Site WiFi Hotspot
-
-Deploy a wireless access point for direct on-site access.
-
-**Use Cases:**
-- Maintenance access point
-- Discrete wireless backdoor
-- Local administration interface
-- Team coordination network
-
-**Features:**
-- Hidden SSID option
-- WPA2-PSK encryption
-- DHCP server
-- DNS configuration
-- Client isolation
-
-### Mode 3: WiFi Penetration Testing
-
-Comprehensive wireless security assessment capabilities.
-
-**Use Cases:**
-- WPA/WPA2 security auditing
-- WPS vulnerability testing
-- Evil twin attack deployment
-- Wireless reconnaissance
-- Handshake capture and analysis
-
-**Features:**
-- Multiple attack vectors
-- Automated tools integration
-- Capture file management
-- Real-time monitoring
-- Multi-adapter coordination
-
----
-
-## 📦 Installation
-
-### Quick Start
+**Setting up the Proxy Server: ON ATTACKER MACHINE**
 
 ```bash
-# Clone the repository
-git clone https://github.com/TheImposterz/RaspPunzel.git
-cd RaspPunzel
+# On your attack machine (proxy server)
 
-# Run the installation script
-sudo ./install.sh
+# Option 1: Self-signed certificate (quick, but less secure)
+sudo ./proxy -selfcert -laddr 0.0.0.0:443
+
+# Option 2: Valid SSL certificate (recommended for production)
+# Download and run the certificate setup script
+wget https://raw.githubusercontent.com/TheImposterz/RaspPunzel/main/scripts/certbot.sh
+chmod +x certbot.sh
+sudo ./certbot.sh
+
+# The script will:
+# - Install certbot
+# - Generate Let's Encrypt certificate for your domain
+# - Configure automatic renewal
+# - Start proxy with valid certificate
+
+# Start proxy with valid certificate
+sudo ./proxy -certfile /etc/letsencrypt/live/yourdomain.com/fullchain.pem \
+             -keyfile /etc/letsencrypt/live/yourdomain.com/privkey.pem \
+             -laddr 0.0.0.0:443
+
+# Agent auto-connects from RaspPunzel
+# Add routes: sudo ip route add 192.168.1.0/24 dev ligolo
 ```
 
-The installation script will:
-1. ✅ Update system packages
-2. ✅ Install dependencies
-3. ✅ Configure network interfaces
-4. ✅ Install Ligolo-ng agent
-5. ✅ Setup web dashboard
-6. ✅ Install penetration testing tools
-7. ✅ Configure systemd services
-8. ✅ Create management scripts
+**Certificate Options:**
 
-### Installation Steps (Detailed)
+| Method | Use Case | Security | Setup Time |
+|--------|----------|----------|------------|
+| **Self-signed** (`-selfcert`) | Testing, lab environments | Low (certificate warnings) | Instant |
+| **Let's Encrypt** (certbot) | Production, real engagements | High (trusted CA) | 5 minutes |
 
-#### 1. Prepare the Raspberry Pi
+**Important Notes:**
+- 🔒 **Self-signed certificates** require agent to ignore cert validation (`-ignore-cert`)
+- ✅ **Let's Encrypt certificates** provide full TLS encryption without warnings
+- 🌐 **Domain required** for Let's Encrypt (use a cheap domain or subdomain)
+- 🔄 **Auto-renewal** is configured by certbot.sh script
 
-```bash
-# Flash Kali Linux ARM image to microSD
-# Download from: https://www.kali.org/get-kali/#kali-arm
-
-# Boot the Pi and connect via SSH
-ssh kali@<raspberry-pi-ip>
-# Default password: kali
-
-# Update the system
-sudo apt update && sudo apt upgrade -y
-```
-
-#### 2. Clone and Install
+**Agent Configuration:**
 
 ```bash
-# Clone the repository
-git clone https://github.com/TheImposterz/RaspPunzel.git
-cd RaspPunzel
-
-# Make scripts executable
-chmod +x install.sh
-chmod +x scripts/*.sh
-
-# Run installation
-sudo ./install.sh
-```
-
-#### 3. Configure Ligolo-ng Agent
-
-```bash
-# Run the configuration wizard
+# On RaspPunzel, configure agent
 sudo ./scripts/configure-ligolo.sh
+
+# For self-signed certificates
+Ignore certificate validation? [Y/n]: Y
+
+# For Let's Encrypt certificates
+Ignore certificate validation? [Y/n]: n
 ```
 
-The wizard will prompt for:
-- **Proxy Host** - IP/domain of your proxy server (direct IP, ngrok URL, SSH forwarded address, etc.)
-- **Proxy Port** - Default: 443 (HTTPS for firewall bypass)
-- **Certificate Validation** - Ignore cert errors for self-signed certificates
-- **Auto-Reconnect** - Enable automatic retry on disconnect
+### Mode 2: WiFi Hotspot
 
-**Example Configurations:**
+Deploy hidden admin access point.
 
 ```bash
-# Direct IP connection
-Proxy Host: 203.0.113.10
-Proxy Port: 443
-
-# Ngrok tunnel
-Proxy Host: 0.tcp.ngrok.io
-Proxy Port: 12345
-
-# SSH forwarding
-Proxy Host: 127.0.0.1
-Proxy Port: 11601
+# Auto-starts at boot
+# SSID: PWNBOX_ADMIN (hidden)
+# Connect and access: http://10.0.0.1:8080
 ```
 
-#### 4. Configure Network (WiFi Adapters)
+### Mode 3: WiFi Pentest
+
+Wireless security testing suite.
 
 ```bash
-# Setup network interfaces and access points
-sudo ./scripts/setup-network.sh
-```
-
-This will configure:
-- Built-in WiFi for internet connectivity
-- USB adapter for admin access point
-- USB adapter for penetration testing
-
-#### 5. Install Web Dashboard
-
-```bash
-# Setup the web interface
-sudo ./scripts/install-web-dashboard.sh
-```
-
-Access the dashboard at: `http://<raspberry-pi-ip>:8080`
-
----
-
-## ⚙️ Configuration
-
-### Configuration Files
-
-```
-RaspPunzel/
-├── config/
-│   ├── network/               # Network configuration templates
-│   │   ├── dnsmasq.conf.template
-│   │   ├── hostapd.conf.template
-│   │   └── interfaces.template
-│   ├── services/              # Service configurations
-│   │   ├── nginx-rasppunzel.conf
-│   │   └── ssh-config.template
-│   └── systemd/               # Systemd service files
-│       ├── rasppunzel-network.service
-│       ├── rasppunzel-tower.service
-│       └── rasppunzel-web.service
-└── config.sh                  # Main configuration file
-```
-
-### Edit Configuration
-
-```bash
-# Edit main configuration
-nano config.sh
-
-# Edit Ligolo-ng configuration
-nano /etc/rasppunzel/ligolo.conf
-
-# Edit network configuration
-nano config/network/interfaces.template
-```
-
-### WiFi Adapter Configuration
-
-Identify your WiFi adapters:
-
-```bash
-# List network interfaces
-ip link show
-
-# List USB devices
-lsusb
-
-# Check wireless interfaces
-iw dev
-```
-
-Update `config.sh` with your adapter MAC addresses:
-
-```bash
-# Example configuration
-WLAN_INTERFACE_ADMIN="wlxaabbccddeeff"      # Admin AP adapter
-WLAN_INTERFACE_ALFA_NEH="wlx00c0ca123456"   # Pentest adapter
-```
-
----
-
-## 🚀 Usage
-
-### Starting the Proxy Server (On Your Attack Machine)
-
-```bash
-# Download Ligolo-ng proxy for your OS
-wget https://github.com/nicocha30/ligolo-ng/releases/download/v0.8.2/ligolo-ng_proxy_0.8.2_linux_amd64.tar.gz
-tar -xzf ligolo-ng_proxy_0.8.2_linux_amd64.tar.gz
-
-# Create TUN interface
-sudo ip tuntap add user $(whoami) mode tun ligolo
-sudo ip link set ligolo up
-
-# Start proxy on port 443 (requires root)
-sudo ./proxy -selfcert -laddr 0.0.0.0:443
-```
-
-**Alternative: Using Ngrok**
-
-```bash
-# Start ngrok tunnel
-ngrok tcp 443
-
-# Note the forwarding URL (e.g., 0.tcp.ngrok.io:12345)
-# Configure agent with this URL using configure-ligolo.sh
-```
-
-### Starting RaspPunzel
-
-```bash
-# Start all services
-sudo systemctl start ligolo-agent
-sudo systemctl start rasppunzel-web
-sudo systemctl start hostapd
-sudo systemctl start dnsmasq
-
-# Or use the management script
-sudo ./scripts/start-services.sh
-
-
-```
-
-### Accessing the Dashboard
-
-```bash
-# Local access (on the Raspberry Pi)
-http://localhost:8080
-
-# Remote access (from your network)
-http://<raspberry-pi-ip>:8080
-
-# Default credentials (change after first login!)
-Username: admin
-Password: rasppunzel
-```
-
-### Network Pivot Workflow
-
-**On Proxy Server:**
-```bash
-# Start proxy
-sudo ./proxy -selfcert -laddr 0.0.0.0:443
-
-# When agent connects, list sessions
-session
-
-# Select session
-session 1
-
-# List available networks
-ifconfig
-
-# Start tunnel
-start
-
-# Add routes on your machine
-sudo ip route add 192.168.1.0/24 dev ligolo
-sudo ip route add 10.0.0.0/24 dev ligolo
-```
-
-**On RaspPunzel:**
-```bash
-# Agent connects automatically
-# View routing table
-ligolo-show-routes
-
-# Check agent status
-ligolo-status
-
-# View logs
-ligolo-logs
-```
-
-### WiFi Hotspot Mode
-
-```bash
-# Start admin access point
-sudo systemctl start hostapd
-sudo systemctl start dnsmasq
-
-# Check connected clients
-sudo iw dev wlan1 station dump
-
-# View DHCP leases
-cat /var/lib/misc/dnsmasq.leases
-```
-
-### WiFi Penetration Testing
-
-```bash
-# Enable monitor mode
-sudo airmon-ng start wlan2
-
-# Scan for networks
-sudo airodump-ng wlan2mon
-
-# Launch Wifite (automated)
-sudo wifite
-
-# Launch Wifiphisher (evil twin)
-cd /usr/share/wireless-tools/wifiphisher
-sudo ./wifiphisher -aI wlan2 -jI wlan0
-
-# Use web dashboard for tool management
+# Pre-installed tools:
+# - Wifite, Aircrack-ng, Wifiphisher
+# - Fluxion, EAPHammer, Kismet
+# Control via web dashboard
 ```
 
 ---
 
 ## 🖥️ Web Dashboard
 
-### Features
+**Access:** `http://<pi-ip>:8080`
 
-- **Real-Time Monitoring** - System status, CPU, memory, network
-- **Service Control** - Start/stop/restart all services
-- **Mode Switching** - Toggle between operating modes
-- **Route Discovery** - Automatic network route detection
-- **Log Viewing** - Live terminal output and system logs
-- **Tool Launching** - Execute pentesting tools from GUI
-
-### Dashboard Sections
-
-**Status Bar:**
-- Ligolo Agent status
-- Admin AP status
-- Rogue AP status
-- Active routes count
-- WiFi clients count
-- System resources (CPU/Memory)
-
-**Mode 1 - Network Pivot:**
-- Ligolo controls (start/stop/restart)
+**Features:**
+- Real-time system monitoring
+- Service control (start/stop/restart)
 - Active routes display
-- Connection information
-- Quick deploy commands
+- Connected WiFi clients
+- Terminal output logs
+- Pentest tool launcher
 
-**Mode 2 - WiFi Hotspot:**
-- Access point controls
-- Connected clients list
-- AP configuration details
-- DHCP server status
+**Dashboard Tabs:**
+- 🔗 **Ligolo-ng** - Tunnel management, routes, connection status
+- 📡 **WiFi AP** - Hotspot control, client list, DHCP leases
+- 🎯 **Pentest Adapters** - WiFi adapters, monitor mode, network scanning
 
-**Mode 3 - WiFi Pentest:(Work in progress)**
-- Tool launcher buttons
-- Detected networks list
-- Attack configuration
-- Capture management
+---
+
+## ⚙️ Configuration
+
+### Main Configuration File
+
+```bash
+nano config.sh
+```
+
+Key settings:
+- WiFi adapter MAC addresses
+- Network interface names
+- Default credentials
+- Service settings
+
+### Ligolo-ng Configuration
+
+```bash
+# Interactive wizard
+sudo ./scripts/configure-ligolo.sh
+
+# Or edit directly
+nano /etc/rasppunzel/ligolo.conf
+```
+
+**Configuration wizard prompts:**
+
+1. **Proxy Host:** Your proxy server IP/domain (e.g., `vpn.yourdomain.com` or `203.0.113.10`)
+2. **Proxy Port:** 443 (default, recommended for firewall bypass)
+3. **Certificate Validation:**
+   - `Y` (Yes) - For self-signed certificates (use with `-selfcert`)
+   - `n` (No) - For valid Let's Encrypt/CA certificates
+4. **Auto-reconnect:** Enable automatic retry on connection loss
+
+**Certificate Setup (Proxy Server):**
+
+```bash
+# Download certificate configuration script
+wget https://raw.githubusercontent.com/TheImposterz/RaspPunzel/main/scripts/certbot.sh
+chmod +x certbot.sh
+
+# Run the script (requires domain name)
+sudo ./certbot.sh yourdomain.com
+
+# Script will:
+# ✅ Install certbot and dependencies
+# ✅ Generate Let's Encrypt certificate
+# ✅ Configure automatic renewal (90 days)
+# ✅ Set proper permissions
+# ✅ Display proxy start command
+
+# Start proxy with certificate
+sudo ./proxy -certfile /etc/letsencrypt/live/yourdomain.com/fullchain.pem \
+             -keyfile /etc/letsencrypt/live/yourdomain.com/privkey.pem \
+             -laddr 0.0.0.0:443
+```
+
+**Certificate Validation Matrix:**
+
+```
+┌─────────────────────┬──────────────────────┬────────────────────┐
+│ Proxy Setup         │ Agent Config         │ Connection Status  │
+├─────────────────────┼──────────────────────┼────────────────────┤
+│ -selfcert           │ -ignore-cert         │ ✅ Works           │
+│ -selfcert           │ validate cert        │ ❌ Fails           │
+│ Let's Encrypt cert  │ -ignore-cert         │ ✅ Works           │
+│ Let's Encrypt cert  │ validate cert        │ ✅ Works (secure)  │
+└─────────────────────┴──────────────────────┴────────────────────┘
+```
+
+**Recommended Setup for Production:**
+
+1. Get a domain name (e.g., from Namecheap, Cloudflare)
+2. Point domain to your proxy server IP
+3. Run `certbot.sh` script on proxy server
+4. Configure agent WITHOUT `-ignore-cert` flag
+5. Enjoy full TLS encryption with trusted certificate
 
 ---
 
 ## 🔧 Management
 
-### Management Scripts
+### Service Control
 
 ```bash
-# Service management
-sudo ./scripts/start-services.sh      # Start all services
-sudo ./scripts/stop-services.sh       # Stop all services
-sudo ./scripts/service-manager.sh     # Interactive menu
+# Start all services
+sudo ./scripts/start-services.sh
 
-# Ligolo management
-ligolo-status                         # Check agent status
-ligolo-restart                        # Restart agent
-ligolo-logs                           # View live logs
-ligolo-show-routes                    # Display routing table
-configure-ligolo.sh                   # Reconfigure agent
+# Stop all services
+sudo ./scripts/stop-services.sh
 
-# System management
-sudo ./scripts/update-system.sh       # Update tools and system
+# Service status
+sudo systemctl status ligolo-agent
+sudo systemctl status rasppunzel-web
+sudo systemctl status hostapd
 ```
 
-
-
-### Systemd Services
+### Useful Commands
 
 ```bash
-# Ligolo Agent
-sudo systemctl start ligolo-agent
-sudo systemctl status ligolo-agent
+# Ligolo status
+ligolo-status
+
+# View logs
+ligolo-logs
 sudo journalctl -u ligolo-agent -f
 
-# Web Dashboard
-sudo systemctl start rasppunzel-web
-sudo systemctl status rasppunzel-web
+# Restart agent
+ligolo-restart
 
-# Network Services
-sudo systemctl start rasppunzel-network
-```
+# Show routes
+ligolo-show-routes
 
-### Monitoring
-
-```bash
-# System resources
-htop                # Interactive process viewer
-iotop               # I/O monitoring
-bmon                # Network bandwidth
-
-# Network status
-ip addr show        # Network interfaces
-ip route show       # Routing table
-iwconfig            # Wireless configuration
-
-# Service logs
-sudo journalctl -xe                    # All logs
-sudo journalctl -u ligolo-agent -f     # Ligolo logs
-sudo journalctl -u rasppunzel-web -f   # Web dashboard logs
+# Update system
+sudo ./scripts/update-system.sh
 ```
 
 ---
 
 ## 🐛 Troubleshooting
 
-### Ligolo Agent Won't Connect
+### Ligolo won't connect
 
-**Check proxy reachability:**
 ```bash
-# Test connection
+# Check proxy reachability
 nc -zv <proxy-host> 443
 
-# Check DNS resolution
-nslookup <proxy-host>
-
-# View agent logs
+# View logs
 ligolo-logs
+
+# Reconfigure
+sudo ./scripts/configure-ligolo.sh
 ```
 
-**Solutions:**
-- Ensure proxy is running on attack machine
-- Verify firewall rules allow port 443
-- Check network connectivity
-- Reconfigure with: `sudo configure-ligolo.sh`
+### WiFi adapter not detected
 
-### WiFi Adapter Not Detected
-
-**Check adapter:**
 ```bash
-# List USB devices
+# List adapters
 lsusb
-
-# Check wireless interfaces
 iw dev
 
-# Check driver loading
+# Check drivers
 dmesg | grep -i rtl
 ```
 
-**Solutions:**
-- Reconnect USB adapter
-- Install required drivers
-- Check adapter compatibility
-- Review `/etc/network/interfaces`
+### Web dashboard not accessible
 
-### Web Dashboard Not Accessible
-
-**Check service:**
 ```bash
-# Service status
+# Check service
 sudo systemctl status rasppunzel-web
 
-# Check port
-sudo netstat -tulpn | grep 5000 #(python app.py)
-sudo netstat -tulpn | grep 8080
+# Restart
+sudo systemctl restart rasppunzel-web
+
 # View logs
-sudo journalctl -u rasppunzel-web -n 50
+sudo journalctl -u rasppunzel-web -f
 ```
 
-**Solutions:**
-- Restart service: `sudo systemctl restart rasppunzel-web`
-- Check firewall: `sudo ufw status`
-- Fix app.py errors (check logs)
-- Reinstall: `sudo ./scripts/install-web-dashboard.sh`
+---
 
-### Access Point Not Starting
+## 📁 Project Structure
 
-**Check hostapd:**
-```bash
-# Service status
-sudo systemctl status hostapd
-
-# Test configuration
-sudo hostapd -dd /etc/hostapd/hostapd.conf
-
-# Check interface
-ip link show <interface>
 ```
-
-**Solutions:**
-- Check interface name in configuration
-- Ensure adapter supports AP mode
-- Review `/etc/hostapd/hostapd.conf`
-- Check for conflicting services
-
-### Routes Not Showing
-
-```bash
-# Manual route check
-ip route show
-
-# Discover routes
-sudo ./scripts/discover-routes.sh
-
-# Add route manually
-sudo ip route add 192.168.1.0/24 dev ligolo
-```
-
-### General Debugging
-
-```bash
-# Check all service statuses
-sudo systemctl status ligolo-agent rasppunzel-web hostapd dnsmasq
-
-# View all recent logs
-sudo journalctl -xe --since "1 hour ago"
-
-# Test network connectivity
-ping -c 4 8.8.8.8
-ping -c 4 google.com
-
-# Check disk space
-df -h
-
-# Check memory
-free -h
+RaspPunzel/
+├── install.sh              # Main installation script
+├── config.sh               # Configuration file
+├── scripts/
+│   ├── configure-ligolo.sh # Agent configuration wizard
+│   ├── certbot.sh          # Certificate setup (for proxy server)
+│   ├── start-services.sh
+│   ├── stop-services.sh
+│   └── update-system.sh
+├── config/
+│   ├── network/            # Network configs
+│   ├── services/           # Service configs
+│   └── systemd/            # Systemd units
+└── web/
+    ├── index.html          # Login page (hacker theme)
+    ├── dashboard.html      # Main dashboard (matrix style)
+    └── api/
+        └── app.py          # Flask backend
 ```
 
 ---
 
 ## ⚠️ Legal Notice
 
-### AUTHORIZED USE ONLY
+**AUTHORIZED USE ONLY**
 
-**This tool is designed exclusively for authorized security testing by qualified professionals.**
+This tool is designed for **authorized security testing by qualified professionals**.
 
-Users must:
-- ✅ Obtain **explicit written authorization** before deployment
-- ✅ Comply with all applicable **laws and regulations**
-- ✅ Use only for **legitimate security testing** purposes
-- ✅ Respect **privacy and data protection** requirements
-- ✅ Document and report findings **responsibly**
+✅ **Required:**
+- Written authorization from system owner
+- Compliance with applicable laws
+- Ethical and responsible use
 
-### Legal Disclaimer
+❌ **Prohibited:**
+- Unauthorized access to systems
+- Illegal activities
+- Privacy violations
 
-**Unauthorized access to computer systems is illegal.** Users assume full responsibility for lawful and ethical use. The authors and contributors:
-
-- ❌ Do not endorse illegal activities
-- ❌ Are not responsible for misuse of this software
-- ❌ Provide no warranty or guarantee
-
-### Ethical Guidelines
-
-- **Scope**: Only test systems you own or have written permission to assess
-- **Disclosure**: Report vulnerabilities responsibly to affected parties
-- **Privacy**: Respect user data and privacy throughout testing
-- **Damage**: Avoid causing harm or disruption to systems
-- **Laws**: Follow all local, state, and federal laws
-
----
-
-## 🤝 Contributing
-
-Contributions are welcome from security professionals and researchers!
-
-### How to Contribute
-
-1. **Fork** the repository
-2. **Create** a feature branch (`git checkout -b feature/amazing-feature`)
-3. **Commit** your changes (`git commit -m 'Add amazing feature'`)
-4. **Push** to the branch (`git push origin feature/amazing-feature`)
-5. **Open** a Pull Request
-
-### Contribution Guidelines
-
-- Test all changes thoroughly
-- Follow existing code style
-- Document new features
-- Update README if needed
-- Ensure compatibility with Raspberry Pi 3/4
-
-### Reporting Issues
-
-For bugs, vulnerabilities, or feature requests:
-- Use GitHub Issues
-- Provide detailed description
-- Include system information
-- Attach relevant logs
-
-### Security Vulnerabilities
-
-For security concerns:
-- Use GitHub Security Advisories (private disclosure)
-- Include detailed reproduction steps
-- Allow reasonable time for response and fixes
+**Users are solely responsible for lawful use. Authors assume no liability for misuse.**
 
 ---
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+GPL V3 License - See [LICENSE](LICENSE) file for details.
 
 ---
 
-## 🙏 Acknowledgments
+## 🙏 Credits
 
-- **Offensive Security** - Kali Linux
+- **Ligolo-ng** - Network tunneling ([nicocha30/ligolo-ng](https://github.com/nicocha30/ligolo-ng))
+- **Kali Linux** - Base OS and tools ([Offensive Security](https://www.kali.org/))
 - **Raspberry Pi Foundation** - Hardware platform
-- **Ligolo-ng Team** - Network tunneling
-- **Open Source Security Community** - Tools and inspiration
-- All tool developers and maintainers
+- Open source security community
 
 ---
 
 ## 📞 Support
 
-- **Documentation**: [GitHub Wiki](https://github.com/TheImposterz/RaspPunzel/wiki)
-- **Issues**: [GitHub Issues](https://github.com/TheImposterz/RaspPunzel/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/TheImposterz/RaspPunzel/discussions)
+- **Issues:** [GitHub Issues](https://github.com/TheImposterz/RaspPunzel/issues)
+- **Documentation:** [GitHub Wiki](https://github.com/TheImposterz/RaspPunzel/wiki)
+- **Discussions:** [GitHub Discussions](https://github.com/TheImposterz/RaspPunzel/discussions)
 
 ---
 
 **For authorized security testing only** 🔒
 
-*RaspPunzel v2.0 - Professional Penetration Testing Platform*
+*RaspPunzel v2.0*
