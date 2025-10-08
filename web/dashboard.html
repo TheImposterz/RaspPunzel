@@ -6,707 +6,625 @@
     <title>RaspPunzel - Dashboard</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
         body {
-            background: linear-gradient(135deg, #0c0c0c 0%, #1a1a1a 100%);
-            color: #00ff41;
-            font-family: 'Courier New', 'Monaco', monospace;
-            min-height: 100vh;
-            overflow-x: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f5f7fa;
+            color: #2d3748;
         }
 
-        body::before {
-            content: '';
-            position: fixed;
+        .header {
+            background: white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            padding: 0 24px;
+            position: sticky;
             top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: 
-                radial-gradient(circle at 20% 50%, rgba(0, 255, 65, 0.1) 0%, transparent 50%),
-                radial-gradient(circle at 80% 20%, rgba(0, 255, 65, 0.08) 0%, transparent 50%);
-            animation: float 20s ease-in-out infinite;
-            pointer-events: none;
-            z-index: -1;
+            z-index: 100;
         }
 
-        @keyframes float {
-            0%, 100% { transform: translateY(0px); }
-            50% { transform: translateY(-20px); }
+        .header-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            height: 64px;
         }
+
+        .header-left h1 {
+            font-size: 20px;
+            font-weight: 600;
+            color: #667eea;
+        }
+
+        .user-menu { position: relative; }
+
+        .user-button {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            background: #f7fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        .user-button:hover { background: #edf2f7; }
+
+        .user-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .dropdown-menu {
+            position: absolute;
+            right: 0;
+            top: calc(100% + 8px);
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            min-width: 200px;
+            display: none;
+        }
+
+        .dropdown-menu.show { display: block; }
+
+        .dropdown-item {
+            display: block;
+            padding: 12px 16px;
+            color: #2d3748;
+            cursor: pointer;
+        }
+
+        .dropdown-item:hover { background: #f7fafc; }
+        .dropdown-item.danger { color: #e53e3e; }
 
         .container {
             max-width: 1400px;
             margin: 0 auto;
-            padding: 20px;
+            padding: 24px;
         }
 
-        .header {
-            text-align: center;
-            margin-bottom: 40px;
-            position: relative;
-        }
-
-        .header h1 {
-            font-size: 3rem;
-            margin-bottom: 10px;
-            text-shadow: 0 0 20px #00ff41;
-            animation: pulse 2s ease-in-out infinite;
-        }
-
-        @keyframes pulse {
-            0%, 100% { text-shadow: 0 0 20px #00ff41; }
-            50% { text-shadow: 0 0 30px #00ff41, 0 0 40px #00ff41; }
-        }
-
-        .header p {
-            font-size: 1.2rem;
-            opacity: 0.8;
-        }
-
-        .status-bar {
+        .stats-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-            margin-bottom: 40px;
+            gap: 20px;
+            margin-bottom: 24px;
         }
 
-        .status-item {
-            background: rgba(0, 255, 65, 0.1);
-            border: 1px solid #00ff41;
-            border-radius: 10px;
+        .stat-card {
+            background: white;
+            border-radius: 8px;
             padding: 20px;
-            text-align: center;
-            backdrop-filter: blur(10px);
-            transition: all 0.3s ease;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         }
 
-        .status-item:hover {
-            background: rgba(0, 255, 65, 0.2);
-            transform: translateY(-5px);
-            box-shadow: 0 10px 20px rgba(0, 255, 65, 0.3);
+        .stat-label {
+            font-size: 13px;
+            color: #718096;
+            margin-bottom: 8px;
+            font-weight: 500;
         }
 
-        .status-item h3 {
-            margin-bottom: 10px;
-            color: #00ff41;
+        .stat-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #2d3748;
         }
 
-        .status-value {
-            font-size: 1.5rem;
-            font-weight: bold;
-        }
-
-        .status-online { color: #00ff41; }
-        .status-offline { color: #ff4444; }
-        .status-warning { color: #ffaa00; }
+        .stat-value.online { color: #38a169; }
+        .stat-value.offline { color: #e53e3e; }
 
         .main-grid {
             display: grid;
             grid-template-columns: 2fr 1fr;
-            gap: 25px;
-            margin-bottom: 40px;
+            gap: 24px;
+            margin-bottom: 24px;
         }
 
         .panel {
-            background: rgba(0, 0, 0, 0.7);
-            border: 2px solid #00ff41;
-            border-radius: 15px;
-            padding: 25px;
-            backdrop-filter: blur(15px);
-        }
-
-        .panel h3 {
-            margin-bottom: 20px;
-            color: #00ff41;
-            font-size: 1.4rem;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .btn {
-            background: linear-gradient(45deg, #003300, #006600);
-            color: #00ff41;
-            border: 1px solid #00ff41;
-            padding: 12px 18px;
+            background: white;
             border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            font-family: inherit;
-            font-size: 0.9rem;
-            position: relative;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
             overflow: hidden;
         }
 
-        .btn:hover {
-            background: linear-gradient(45deg, #004400, #008800);
-            box-shadow: 0 5px 15px rgba(0, 255, 65, 0.4);
-            transform: translateY(-2px);
+        .panel-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid #e2e8f0;
+            font-weight: 600;
+            font-size: 16px;
         }
 
-        .btn.primary {
-            background: linear-gradient(45deg, #006600, #00aa00);
-        }
+        .panel-body { padding: 20px; }
 
-        .btn.danger {
-            background: linear-gradient(45deg, #660000, #aa0000);
-            border-color: #ff4444;
-            color: #ff4444;
-        }
-
-        .control-buttons {
+        .btn-group {
             display: flex;
             flex-wrap: wrap;
-            gap: 15px;
-            justify-content: center;
+            gap: 12px;
         }
 
-        .terminal-window {
-            background: #000000;
-            border: 2px solid #00ff41;
-            border-radius: 10px;
-            margin-top: 30px;
-            max-height: 400px;
+        .btn {
+            padding: 10px 20px;
+            border-radius: 6px;
+            border: none;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #edf2f7;
+            color: #2d3748;
+        }
+
+        .btn-secondary:hover { background: #e2e8f0; }
+
+        .btn-danger {
+            background: #fff5f5;
+            color: #e53e3e;
+            border: 1px solid #feb2b2;
+        }
+
+        .btn-danger:hover { background: #fed7d7; }
+
+        .list-empty {
+            text-align: center;
+            padding: 40px 20px;
+            color: #a0aec0;
+            font-size: 14px;
+        }
+
+        .list-item {
+            padding: 16px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .list-item:last-child { border-bottom: none; }
+
+        .list-item-title {
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 8px;
+        }
+
+        .list-item-meta {
+            font-size: 13px;
+            color: #718096;
+        }
+
+        .terminal {
+            background: #1a202c;
+            border-radius: 8px;
             overflow: hidden;
         }
 
         .terminal-header {
-            background: #00ff41;
-            color: #000000;
-            padding: 10px 15px;
-            font-weight: bold;
+            background: #2d3748;
+            padding: 12px 16px;
             display: flex;
             justify-content: space-between;
-            align-items: center;
+            color: #e2e8f0;
+            font-size: 13px;
+            font-weight: 600;
         }
 
-        .terminal-content {
-            padding: 15px;
-            height: 350px;
+        .terminal-body {
+            padding: 16px;
+            height: 300px;
             overflow-y: auto;
-            font-size: 0.9rem;
-            line-height: 1.4;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.6;
         }
 
         .terminal-line {
-            margin-bottom: 5px;
-            animation: typewriter 0.3s ease-in-out;
-            word-wrap: break-word;
+            margin-bottom: 4px;
+            color: #e2e8f0;
         }
 
-        .terminal-line.success { color: #00ff41; }
-        .terminal-line.error { color: #ff4444; }
-        .terminal-line.warning { color: #ffaa00; }
-        .terminal-line.info { color: #4488ff; }
+        .terminal-line.success { color: #68d391; }
+        .terminal-line.error { color: #fc8181; }
+        .terminal-line.warning { color: #f6ad55; }
+        .terminal-line.info { color: #63b3ed; }
+        .terminal-time { color: #a0aec0; margin-right: 8px; }
 
-        @keyframes typewriter {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-
-        .agent-list {
-            list-style: none;
-        }
-
-        .agent-item {
-            background: rgba(0, 255, 65, 0.05);
-            border: 1px solid #00ff41;
-            border-radius: 8px;
-            padding: 15px;
-            margin-bottom: 10px;
-            transition: all 0.3s ease;
-        }
-
-        .agent-item:hover {
-            background: rgba(0, 255, 65, 0.15);
-            transform: translateX(5px);
-        }
-
-        .agent-info {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 10px;
-        }
-
-        .agent-name {
-            font-weight: bold;
-            color: #00ff41;
-        }
-
-        .agent-status {
-            display: flex;
-            align-items: center;
-            gap: 5px;
-        }
-
-        .status-dot {
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            background: #00ff41;
-            animation: pulse-dot 1s ease-in-out infinite;
-        }
-
-        @keyframes pulse-dot {
-            0%, 100% { transform: scale(1); opacity: 1; }
-            50% { transform: scale(1.2); opacity: 0.7; }
-        }
-
-        .routes-list {
-            list-style: none;
-        }
-
-        .route-item {
-            background: rgba(0, 255, 65, 0.05);
-            border-left: 3px solid #00ff41;
-            padding: 10px 15px;
-            margin-bottom: 8px;
-            font-family: 'Courier New', monospace;
-        }
-
-        .quick-actions {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 10px;
-        }
-
-        .notification {
+        .toast {
             position: fixed;
-            top: 20px;
-            right: 20px;
-            background: rgba(0, 0, 0, 0.9);
-            border: 1px solid #00ff41;
+            top: 80px;
+            right: 24px;
+            background: white;
             border-radius: 8px;
-            padding: 15px 20px;
-            z-index: 1000;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            padding: 16px 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 300px;
             transform: translateX(400px);
             transition: transform 0.3s ease;
-            max-width: 300px;
+            z-index: 1000;
         }
 
-        .notification.show {
-            transform: translateX(0);
+        .toast.show { transform: translateX(0); }
+
+        .toast-icon {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            flex-shrink: 0;
         }
 
-        .notification.success { border-color: #00ff41; color: #00ff41; }
-        .notification.error { border-color: #ff4444; color: #ff4444; }
-        .notification.warning { border-color: #ffaa00; color: #ffaa00; }
+        .toast.success .toast-icon {
+            background: #c6f6d5;
+            color: #22543d;
+        }
+
+        .toast.error .toast-icon {
+            background: #fed7d7;
+            color: #742a2a;
+        }
+
+        .toast-message {
+            flex: 1;
+            font-size: 14px;
+        }
+
+        .info-grid {
+            display: grid;
+            gap: 12px;
+            font-size: 14px;
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .info-label {
+            color: #718096;
+            font-weight: 500;
+        }
+
+        .info-value {
+            color: #2d3748;
+            font-weight: 600;
+        }
+
+        .quick-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
 
         @media (max-width: 1024px) {
-            .main-grid {
-                grid-template-columns: 1fr;
-            }
+            .main-grid { grid-template-columns: 1fr; }
         }
 
         @media (max-width: 768px) {
-            .status-bar {
-                grid-template-columns: repeat(2, 1fr);
-            }
-            
-            .header h1 {
-                font-size: 2rem;
-            }
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+            .quick-grid { grid-template-columns: 1fr; }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <!-- Header -->
-        <div class="header">
-            <h1>RaspPunzel Dashboard</h1>
-            <p>Ligolo-ng Network Pivot Control</p>
-        </div>
-
-        <!-- Status Bar -->
-        <div class="status-bar">
-            <div class="status-item">
-                <h3>Ligolo Proxy</h3>
-                <div class="status-value" id="proxy-status">
-                    <span class="status-offline">OFFLINE</span>
-                </div>
+    <div class="header">
+        <div class="header-content">
+            <div class="header-left">
+                <h1>🍓 RaspPunzel</h1>
             </div>
-            <div class="status-item">
-                <h3>Connected Agents</h3>
-                <div class="status-value" id="agent-count">0</div>
-            </div>
-            <div class="status-item">
-                <h3>Active Routes</h3>
-                <div class="status-value" id="route-count">0</div>
-            </div>
-            <div class="status-item">
-                <h3>Admin AP</h3>
-                <div class="status-value" id="ap-status">
-                    <span class="status-offline">OFFLINE</span>
-                </div>
-            </div>
-            <div class="status-item">
-                <h3>CPU Usage</h3>
-                <div class="status-value" id="cpu-usage">--%</div>
-            </div>
-            <div class="status-item">
-                <h3>Memory</h3>
-                <div class="status-value" id="memory-usage">--%</div>
-            </div>
-        </div>
-
-        <!-- Main Grid -->
-        <div class="main-grid">
-            <!-- Left Column -->
-            <div>
-                <!-- Control Panel -->
-                <div class="panel">
-                    <h3>System Controls</h3>
-                    <div class="control-buttons">
-                        <button class="btn primary" onclick="startServices()">Start All</button>
-                        <button class="btn" onclick="restartServices()">Restart</button>
-                        <button class="btn danger" onclick="stopServices()">Stop All</button>
-                        <button class="btn" onclick="updateLigolo()">Update Ligolo</button>
+            <div class="header-right">
+                <div class="user-menu">
+                    <div class="user-button" onclick="toggleUserMenu()">
+                        <div class="user-avatar">A</div>
+                        <span>Admin</span>
+                        <span>▼</span>
+                    </div>
+                    <div class="dropdown-menu" id="userDropdown">
+                        <div class="dropdown-item" onclick="reloadPage()">🔄 Actualiser</div>
+                        <div class="dropdown-item danger" onclick="logout()">🚪 Déconnexion</div>
                     </div>
                 </div>
-
-                <!-- Connected Agents -->
-                <div class="panel" style="margin-top: 25px;">
-                    <h3>Connected Agents</h3>
-                    <ul class="agent-list" id="agent-list">
-                        <li style="text-align: center; opacity: 0.5;">No agents connected</li>
-                    </ul>
-                </div>
-
-                <!-- Active Routes -->
-                <div class="panel" style="margin-top: 25px;">
-                    <h3>Active Routes</h3>
-                    <ul class="routes-list" id="routes-list">
-                        <li style="text-align: center; opacity: 0.5;">No routes configured</li>
-                    </ul>
-                </div>
-            </div>
-
-            <!-- Right Column -->
-            <div>
-                <!-- Quick Actions -->
-                <div class="panel">
-                    <h3>Quick Actions</h3>
-                    <div class="quick-actions">
-                        <button class="btn" onclick="showLogs()">View Logs</button>
-                        <button class="btn" onclick="showNetworkInfo()">Network Info</button>
-                        <button class="btn" onclick="exportConfig()">Export Config</button>
-                        <button class="btn" onclick="restartProxy()">Restart Proxy</button>
-                    </div>
-                </div>
-
-                <!-- System Info -->
-                <div class="panel" style="margin-top: 25px;">
-                    <h3>System Information</h3>
-                    <div style="font-size: 0.9rem; line-height: 1.6;">
-                        <div><strong>Hostname:</strong> <span id="hostname">--</span></div>
-                        <div><strong>Uptime:</strong> <span id="uptime">--</span></div>
-                        <div><strong>IP Address:</strong> <span id="ip-address">--</span></div>
-                        <div><strong>Ligolo Version:</strong> <span id="ligolo-version">--</span></div>
-                        <div><strong>Listening Port:</strong> <span id="listen-port">11601</span></div>
-                    </div>
-                </div>
-
-                <!-- Documentation -->
-                <div class="panel" style="margin-top: 25px;">
-                    <h3>Quick Reference</h3>
-                    <div style="font-size: 0.85rem; line-height: 1.8; opacity: 0.8;">
-                        <div><strong>Deploy Agent:</strong></div>
-                        <code style="display: block; background: rgba(0,0,0,0.5); padding: 8px; border-radius: 4px; margin: 5px 0;">
-                            ./agent -connect &lt;IP&gt;:11601 -ignore-cert
-                        </code>
-                        <div style="margin-top: 10px;"><strong>Add Route:</strong></div>
-                        <code style="display: block; background: rgba(0,0,0,0.5); padding: 8px; border-radius: 4px; margin: 5px 0;">
-                            sudo ip route add 172.16.10.0/24 dev ligolo
-                        </code>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Terminal Window -->
-        <div class="terminal-window">
-            <div class="terminal-header">
-                <span>Terminal Output</span>
-                <div style="display: flex; gap: 10px;">
-                    <button class="btn" onclick="clearTerminal()" style="padding: 5px 10px; font-size: 0.8rem;">Clear</button>
-                </div>
-            </div>
-            <div class="terminal-content" id="terminal">
-                <div class="terminal-line info">RaspPunzel v2.0 - Ligolo-ng Dashboard</div>
-                <div class="terminal-line info">Connecting to server...</div>
             </div>
         </div>
     </div>
 
-    <!-- Notification -->
-    <div class="notification" id="notification"></div>
+    <div class="container">
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-label">Agent Ligolo</div>
+                <div class="stat-value" id="agentStatus">--</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">CPU</div>
+                <div class="stat-value" id="cpuUsage">--%</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Mémoire</div>
+                <div class="stat-value" id="memoryUsage">--%</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Uptime</div>
+                <div class="stat-value" id="uptime">--</div>
+            </div>
+        </div>
+
+        <div class="main-grid">
+            <div>
+                <div class="panel" style="margin-bottom: 24px;">
+                    <div class="panel-header">Contrôles</div>
+                    <div class="panel-body">
+                        <div class="btn-group">
+                            <button class="btn btn-primary" onclick="startServices()">▶️ Démarrer</button>
+                            <button class="btn btn-secondary" onclick="restartServices()">🔄 Redémarrer</button>
+                            <button class="btn btn-danger" onclick="stopServices()">⏹️ Arrêter</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <div class="panel-header">Routes réseau</div>
+                    <div id="routesList">
+                        <div class="list-empty">Aucune route configurée</div>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <div class="panel" style="margin-bottom: 24px;">
+                    <div class="panel-header">Actions rapides</div>
+                    <div class="panel-body">
+                        <div class="quick-grid">
+                            <button class="btn btn-secondary" onclick="showLogs()">📋 Logs</button>
+                            <button class="btn btn-secondary" onclick="showNetworkInfo()">🌐 Réseau</button>
+                            <button class="btn btn-secondary" onclick="exportConfig()">💾 Export</button>
+                            <button class="btn btn-secondary" onclick="restartLigolo()">🔄 Ligolo</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <div class="panel-header">Informations système</div>
+                    <div class="panel-body">
+                        <div class="info-grid">
+                            <div class="info-row">
+                                <span class="info-label">Hostname</span>
+                                <span class="info-value" id="hostname">--</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Adresse IP</span>
+                                <span class="info-value" id="ipAddress">--</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Version Ligolo</span>
+                                <span class="info-value" id="ligoloVersion">--</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="terminal">
+            <div class="terminal-header">
+                <span>Terminal</span>
+                <button class="btn btn-secondary" onclick="clearTerminal()" style="padding: 4px 12px; font-size: 12px;">Effacer</button>
+            </div>
+            <div class="terminal-body" id="terminal">
+                <div class="terminal-line info">RaspPunzel Dashboard v2.0</div>
+                <div class="terminal-line">Connexion au serveur...</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast">
+        <div class="toast-icon">✓</div>
+        <div class="toast-message" id="toastMessage"></div>
+    </div>
 
     <script>
-        let socket;
-        let terminalElement = document.getElementById('terminal');
-        let notificationElement = document.getElementById('notification');
-        
         const API_BASE = window.location.origin;
+        let socket;
 
-        // Initialize Socket.IO
+        function toggleUserMenu() {
+            document.getElementById('userDropdown').classList.toggle('show');
+        }
+
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.user-menu')) {
+                document.getElementById('userDropdown').classList.remove('show');
+            }
+        });
+
+        function logout() {
+            window.location.href = '/logout';
+        }
+
+        function reloadPage() {
+            window.location.reload();
+        }
+
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            const toastMessage = document.getElementById('toastMessage');
+            toast.className = `toast ${type}`;
+            toastMessage.textContent = message;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+
+        function addToTerminal(text, type = '') {
+            const terminal = document.getElementById('terminal');
+            const line = document.createElement('div');
+            line.className = `terminal-line ${type}`;
+            const time = new Date().toLocaleTimeString();
+            line.innerHTML = `<span class="terminal-time">${time}</span>${text}`;
+            terminal.appendChild(line);
+            terminal.scrollTop = terminal.scrollHeight;
+            while (terminal.children.length > 100) {
+                terminal.removeChild(terminal.firstChild);
+            }
+        }
+
+        function clearTerminal() {
+            document.getElementById('terminal').innerHTML = '<div class="terminal-line info">Terminal effacé</div>';
+        }
+
         function initializeSocket() {
             socket = io(API_BASE);
-            
-            socket.on('connect', function() {
-                addToTerminal('WebSocket connected', 'success');
+            socket.on('connect', () => {
+                addToTerminal('✓ WebSocket connecté', 'success');
                 loadSystemStatus();
             });
-            
-            socket.on('disconnect', function() {
-                addToTerminal('WebSocket disconnected', 'warning');
+            socket.on('disconnect', () => {
+                addToTerminal('✗ WebSocket déconnecté', 'warning');
             });
-            
-            socket.on('agent_connected', function(data) {
-                addToTerminal(`Agent connected: ${data.name} (${data.ip})`, 'success');
-                updateAgentList();
-            });
-            
-            socket.on('agent_disconnected', function(data) {
-                addToTerminal(`Agent disconnected: ${data.name}`, 'warning');
-                updateAgentList();
-            });
-            
-            socket.on('route_added', function(data) {
-                addToTerminal(`Route added: ${data.network}`, 'info');
-                updateRoutes();
-            });
-            
-            socket.on('terminal_output', function(data) {
+            socket.on('terminal_output', (data) => {
                 addToTerminal(data.output, 'info');
             });
         }
 
-        // Add to terminal
-        function addToTerminal(text, type = 'info') {
-            const line = document.createElement('div');
-            line.className = `terminal-line ${type}`;
-            const timestamp = new Date().toLocaleTimeString();
-            line.innerHTML = `<span style="opacity: 0.6">${timestamp}</span> ${text}`;
-            terminalElement.appendChild(line);
-            terminalElement.scrollTop = terminalElement.scrollHeight;
-            
-            while (terminalElement.children.length > 100) {
-                terminalElement.removeChild(terminalElement.firstChild);
-            }
-        }
-
-        // Show notification
-        function showNotification(message, type = 'info', duration = 4000) {
-            notificationElement.textContent = message;
-            notificationElement.className = `notification show ${type}`;
-            setTimeout(() => {
-                notificationElement.classList.remove('show');
-            }, duration);
-        }
-
-        // Load system status
         async function loadSystemStatus() {
             try {
                 const response = await fetch(`${API_BASE}/api/status`);
                 const data = await response.json();
                 
                 if (data.success) {
-                    // Update proxy status
-                    const proxyStatus = document.getElementById('proxy-status');
-                    if (data.services.ligolo_proxy) {
-                        proxyStatus.innerHTML = '<span class="status-online">ONLINE</span>';
+                    const agentStatus = document.getElementById('agentStatus');
+                    if (data.services && data.services['ligolo-agent']) {
+                        agentStatus.textContent = 'ACTIF';
+                        agentStatus.classList.add('online');
+                        agentStatus.classList.remove('offline');
                     } else {
-                        proxyStatus.innerHTML = '<span class="status-offline">OFFLINE</span>';
+                        agentStatus.textContent = 'INACTIF';
+                        agentStatus.classList.add('offline');
+                        agentStatus.classList.remove('online');
                     }
                     
-                    // Update AP status
-                    const apStatus = document.getElementById('ap-status');
-                    if (data.services.hostapd) {
-                        apStatus.innerHTML = '<span class="status-online">ONLINE</span>';
-                    } else {
-                        apStatus.innerHTML = '<span class="status-offline">OFFLINE</span>';
+                    if (data.system) {
+                        document.getElementById('cpuUsage').textContent = `${Math.round(data.system.cpu_percent)}%`;
+                        document.getElementById('memoryUsage').textContent = `${Math.round(data.system.memory_percent)}%`;
+                        document.getElementById('uptime').textContent = data.system.uptime || '--';
+                        document.getElementById('hostname').textContent = data.system.hostname || '--';
+                        
+                        if (data.system.network_interfaces) {
+                            const interfaces = Object.values(data.system.network_interfaces);
+                            const firstInterface = interfaces.find(i => i.ip && i.ip !== '127.0.0.1');
+                            document.getElementById('ipAddress').textContent = firstInterface?.ip || '--';
+                        }
                     }
                     
-                    // Update system info
-                    document.getElementById('cpu-usage').textContent = `${Math.round(data.system.cpu_percent)}%`;
-                    document.getElementById('memory-usage').textContent = `${Math.round(data.system.memory_percent)}%`;
-                    document.getElementById('hostname').textContent = data.system.hostname;
-                    document.getElementById('uptime').textContent = data.system.uptime;
-                    document.getElementById('ip-address').textContent = Object.values(data.system.network_interfaces)[0]?.ip || '--';
+                    if (data.ligolo) {
+                        document.getElementById('ligoloVersion').textContent = data.ligolo.version || '--';
+                    }
                     
-                    // Update agent count
-                    document.getElementById('agent-count').textContent = data.agents?.length || 0;
-                    document.getElementById('route-count').textContent = data.routes?.length || 0;
-                    
-                    updateAgentList(data.agents);
                     updateRoutes(data.routes);
                 }
             } catch (error) {
-                addToTerminal(`Error loading status: ${error.message}`, 'error');
+                addToTerminal(`Erreur: ${error.message}`, 'error');
             }
         }
 
-        // Update agent list
-        function updateAgentList(agents) {
-            const agentList = document.getElementById('agent-list');
-            
-            if (!agents || agents.length === 0) {
-                agentList.innerHTML = '<li style="text-align: center; opacity: 0.5;">No agents connected</li>';
-                return;
-            }
-            
-            agentList.innerHTML = agents.map(agent => `
-                <li class="agent-item">
-                    <div class="agent-info">
-                        <span class="agent-name">${agent.name}</span>
-                        <div class="agent-status">
-                            <div class="status-dot"></div>
-                            <span>Connected</span>
-                        </div>
-                    </div>
-                    <div style="font-size: 0.85rem; opacity: 0.7;">
-                        IP: ${agent.ip} | Networks: ${agent.networks?.join(', ') || 'None'}
-                    </div>
-                </li>
-            `).join('');
-        }
-
-        // Update routes
         function updateRoutes(routes) {
-            const routesList = document.getElementById('routes-list');
-            
+            const routesList = document.getElementById('routesList');
             if (!routes || routes.length === 0) {
-                routesList.innerHTML = '<li style="text-align: center; opacity: 0.5;">No routes configured</li>';
+                routesList.innerHTML = '<div class="list-empty">Aucune route configurée</div>';
                 return;
             }
-            
             routesList.innerHTML = routes.map(route => `
-                <li class="route-item">
-                    ${route.network} via ${route.interface}
-                </li>
+                <div class="list-item">
+                    <div class="list-item-title">${route.destination || route.raw}</div>
+                    <div class="list-item-meta">
+                        ${route.interface ? `Interface: ${route.interface}` : ''}
+                        ${route.gateway ? ` | Gateway: ${route.gateway}` : ''}
+                    </div>
+                </div>
             `).join('');
         }
 
-        // Control functions
         async function startServices() {
             try {
-                addToTerminal('Starting all services...', 'info');
-                showNotification('Starting services...', 'info');
-                
-                const response = await fetch(`${API_BASE}/api/services/start`, {
-                    method: 'POST'
-                });
-                
+                addToTerminal('Démarrage des services...', 'info');
+                const response = await fetch(`${API_BASE}/api/services/start`, { method: 'POST' });
                 const data = await response.json();
-                
                 if (data.success) {
-                    addToTerminal('Services started successfully', 'success');
-                    showNotification('Services started', 'success');
+                    addToTerminal('✓ Services démarrés', 'success');
+                    showToast('Services démarrés');
+                    setTimeout(loadSystemStatus, 2000);
                 } else {
-                    addToTerminal(`Error: ${data.message}`, 'error');
-                    showNotification('Error starting services', 'error');
+                    addToTerminal('✗ Erreur', 'error');
+                    showToast('Erreur', 'error');
                 }
-                
-                setTimeout(loadSystemStatus, 2000);
             } catch (error) {
-                addToTerminal(`Error: ${error.message}`, 'error');
-                showNotification('Connection error', 'error');
+                addToTerminal(`Erreur: ${error.message}`, 'error');
             }
         }
 
         async function stopServices() {
-            if (!confirm('Stop all services?')) return;
-            
+            if (!confirm('Arrêter tous les services ?')) return;
             try {
-                addToTerminal('Stopping all services...', 'warning');
-                showNotification('Stopping services...', 'warning');
-                
-                const response = await fetch(`${API_BASE}/api/services/stop`, {
-                    method: 'POST'
-                });
-                
+                addToTerminal('Arrêt des services...', 'warning');
+                const response = await fetch(`${API_BASE}/api/services/stop`, { method: 'POST' });
                 const data = await response.json();
-                
                 if (data.success) {
-                    addToTerminal('Services stopped', 'warning');
-                    showNotification('Services stopped', 'warning');
+                    addToTerminal('✓ Services arrêtés', 'warning');
+                    showToast('Services arrêtés', 'warning');
+                    setTimeout(loadSystemStatus, 2000);
                 }
-                
-                setTimeout(loadSystemStatus, 2000);
             } catch (error) {
-                addToTerminal(`Error: ${error.message}`, 'error');
+                addToTerminal(`Erreur: ${error.message}`, 'error');
             }
         }
 
         async function restartServices() {
             try {
-                addToTerminal('Restarting services...', 'info');
-                showNotification('Restarting...', 'info');
-                
-                const response = await fetch(`${API_BASE}/api/services/restart`, {
-                    method: 'POST'
-                });
-                
+                addToTerminal('Redémarrage...', 'info');
+                const response = await fetch(`${API_BASE}/api/services/restart`, { method: 'POST' });
                 const data = await response.json();
-                
                 if (data.success) {
-                    addToTerminal('Services restarted', 'success');
-                    showNotification('Restart complete', 'success');
+                    addToTerminal('✓ Services redémarrés', 'success');
+                    showToast('Redémarrage réussi');
+                    setTimeout(loadSystemStatus, 3000);
                 }
-                
-                setTimeout(loadSystemStatus, 3000);
             } catch (error) {
-                addToTerminal(`Error: ${error.message}`, 'error');
+                addToTerminal(`Erreur: ${error.message}`, 'error');
             }
         }
 
-        async function restartProxy() {
+        async function restartLigolo() {
             try {
-                addToTerminal('Restarting Ligolo proxy...', 'info');
-                
-                const response = await fetch(`${API_BASE}/api/ligolo/restart`, {
-                    method: 'POST'
-                });
-                
+                addToTerminal('Redémarrage Ligolo...', 'info');
+                const response = await fetch(`${API_BASE}/api/ligolo/restart`, { method: 'POST' });
                 const data = await response.json();
-                
                 if (data.success) {
-                    addToTerminal('Proxy restarted', 'success');
-                    showNotification('Proxy restarted', 'success');
-                }
-                
-                setTimeout(loadSystemStatus, 2000);
-            } catch (error) {
-                addToTerminal(`Error: ${error.message}`, 'error');
-            }
-        }
-
-        async function updateLigolo() {
-            if (!confirm('Update Ligolo-ng to latest version?')) return;
-            
-            try {
-                addToTerminal('Starting Ligolo-ng update...', 'info');
-                showNotification('Updating Ligolo-ng...', 'info');
-                
-                const response = await fetch(`${API_BASE}/api/ligolo/update`, {
-                    method: 'POST'
-                });
-                
-                const data = await response.json();
-                
-                if (data.success) {
-                    addToTerminal('Update started', 'success');
-                    showNotification('Update in progress', 'success');
+                    addToTerminal('✓ Ligolo redémarré', 'success');
+                    showToast('Ligolo redémarré');
+                    setTimeout(loadSystemStatus, 2000);
                 }
             } catch (error) {
-                addToTerminal(`Error: ${error.message}`, 'error');
+                addToTerminal(`Erreur: ${error.message}`, 'error');
             }
         }
 
@@ -714,16 +632,26 @@
             try {
                 const response = await fetch(`${API_BASE}/api/logs`);
                 const data = await response.json();
-                
-                if (data.success) {
-                    addToTerminal('=== RECENT LOGS ===', 'info');
-                    data.logs.slice(-20).forEach(log => {
-                        addToTerminal(log, 'info');
-                    });
-                    addToTerminal('=== END LOGS ===', 'info');
+                if (data.success && data.logs) {
+                    addToTerminal('=== LOGS SYSTÈME ===', 'info');
+                    const recentLogs = data.logs.slice(-20);
+                    if (recentLogs.length === 0) {
+                        addToTerminal('Aucun log disponible', 'warning');
+                    } else {
+                        recentLogs.forEach(log => {
+                            if (typeof log === 'object' && log.line) {
+                                addToTerminal(log.line, 'info');
+                            } else if (typeof log === 'string') {
+                                addToTerminal(log, 'info');
+                            }
+                        });
+                    }
+                    addToTerminal('=== FIN LOGS ===', 'info');
+                } else {
+                    addToTerminal('Aucun log disponible', 'warning');
                 }
             } catch (error) {
-                addToTerminal(`Error: ${error.message}`, 'error');
+                addToTerminal(`Erreur: ${error.message}`, 'error');
             }
         }
 
@@ -731,16 +659,29 @@
             try {
                 const response = await fetch(`${API_BASE}/api/network/info`);
                 const data = await response.json();
-                
-                if (data.success) {
-                    addToTerminal('=== NETWORK INFORMATION ===', 'info');
+                if (data.success && data.interfaces) {
+                    addToTerminal('=== INFORMATIONS RÉSEAU ===', 'info');
                     Object.entries(data.interfaces).forEach(([iface, info]) => {
-                        addToTerminal(`${iface}: ${info.ip} (${info.status})`, 'info');
+                        let ip = 'N/A';
+                        let status = 'unknown';
+                        
+                        if (info.addresses && info.addresses.length > 0) {
+                            const ipv4 = info.addresses.find(addr => addr.type === 'ipv4');
+                            if (ipv4 && ipv4.ip) ip = ipv4.ip;
+                        } else if (info.ip) {
+                            ip = info.ip;
+                        }
+                        
+                        if (info.status) status = info.status;
+                        
+                        addToTerminal(`${iface}: ${ip} (${status})`, 'info');
                     });
-                    addToTerminal('=== END NETWORK INFO ===', 'info');
+                    addToTerminal('=== FIN INFO RÉSEAU ===', 'info');
+                } else {
+                    addToTerminal('Informations réseau non disponibles', 'warning');
                 }
             } catch (error) {
-                addToTerminal(`Error: ${error.message}`, 'error');
+                addToTerminal(`Erreur: ${error.message}`, 'error');
             }
         }
 
@@ -748,38 +689,37 @@
             try {
                 const response = await fetch(`${API_BASE}/api/config/export`);
                 const data = await response.json();
-                
-                if (data.success) {
-                    const blob = new Blob([JSON.stringify(data.config, null, 2)], {
-                        type: 'application/json'
-                    });
+                if (data.success && data.config) {
+                    const blob = new Blob([JSON.stringify(data.config, null, 2)], { type: 'application/json' });
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement('a');
                     a.href = url;
-                    a.download = 'rasppunzel-config.json';
+                    a.download = `rasppunzel-config-${new Date().toISOString().split('T')[0]}.json`;
                     a.click();
-                    showNotification('Configuration exported', 'success');
+                    URL.revokeObjectURL(url);
+                    addToTerminal('✓ Configuration exportée', 'success');
+                    showToast('Configuration exportée');
+                } else {
+                    addToTerminal('✗ Erreur', 'error');
                 }
             } catch (error) {
-                addToTerminal(`Error: ${error.message}`, 'error');
+                addToTerminal(`Erreur: ${error.message}`, 'error');
             }
         }
 
-        function clearTerminal() {
-            terminalElement.innerHTML = '<div class="terminal-line info">Terminal cleared</div>';
-        }
-
-        // Initialize
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', () => {
             initializeSocket();
-            setInterval(loadSystemStatus, 30000); // Update every 30s
+            setInterval(loadSystemStatus, 30000);
         });
 
-        // Keyboard shortcuts
-        document.addEventListener('keydown', function(e) {
+        document.addEventListener('keydown', (e) => {
             if (e.ctrlKey && e.key === 'l') {
                 e.preventDefault();
                 clearTerminal();
+            }
+            if (e.ctrlKey && e.key === 'r') {
+                e.preventDefault();
+                loadSystemStatus();
             }
         });
     </script>
