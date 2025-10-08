@@ -21,7 +21,7 @@ import psutil
 import signal
 from functools import wraps
 
-app = Flask(__name__, template_folder='../')
+app = Flask(__name__, template_folder='/opt/rasppunzel/web')
 app.config['SECRET_KEY'] = 'rasppunzel-secret-key-2025'
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=8)
 CORS(app)
@@ -789,7 +789,7 @@ def run_server(host='0.0.0.0', port=5000, debug=False):
     load_auth_config()
     
     print(f"[+] Démarrage du serveur RaspPunzel Dashboard sur {host}:{port}")
-    print(f"[+] Interface web accessible sur http://{host}:{port}")
+    print(f"[+] Interface web accessible sur http://{host}:8080")
     print(f"[+] Utilisateur: {AUTH_CONFIG['username']}")
     print(f"[+] Mot de passe par défaut: rasppunzel (à changer après première connexion)")
     

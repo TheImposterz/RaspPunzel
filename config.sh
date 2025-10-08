@@ -5,7 +5,7 @@
 # =================================================================================================
 
 # Ligolo-ng configuration
-LIGOLO_VERSION="v0.8.2"
+LIGOLO_VERSION="v0.8"
 LIGOLO_PROXY_HOST="10.0.2.2"  # Host machine (Vagrant NAT gateway)
 LIGOLO_PROXY_PORT="11601"
 LIGOLO_IGNORE_CERT="true"
@@ -13,7 +13,7 @@ LIGOLO_RETRY_DELAY="10"
 LIGOLO_AUTO_RESTART="true"
 
 # Network interfaces (auto-detected)
-MAC_ETH0="08:00:27:b7:26:8d"
+MAC_ETH0="08:00:27:f2:5b:9c"
 MAC_WLAN0="00:00:00:00:00:00"  # Not used in VM
 WLAN_INTERFACE_ADMIN="none"    # No WiFi in VM
 WLAN_INTERFACE_ALFA_NEH="none"
