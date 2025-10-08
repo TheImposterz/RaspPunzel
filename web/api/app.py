@@ -272,7 +272,7 @@ def check_ligolo_agent_running():
     
     try:
         result = subprocess.run(
-            ['lsof', '-i', '-n', '-P'],
+            ['/usr/bin/lsof', '-i', '-n', '-P'],
             capture_output=True,
             text=True,
             timeout=5
@@ -306,7 +306,7 @@ def get_ligolo_connection_info():
     
     try:
         result = subprocess.run(
-            ['lsof', '-i', '-n', '-P'],
+            ['/usr/bin/lsof', '-i', '-n', '-P'],
             capture_output=True,
             text=True,
             timeout=5
