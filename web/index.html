@@ -303,7 +303,8 @@
             const password = document.getElementById('password').value;
             
             try {
-                const response = await fetch('/api/login', {
+                // CORRECTION: Appeler /login au lieu de /api/login
+                const response = await fetch('/login', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -315,7 +316,7 @@
                 
                 if (data.success) {
                     // Login successful, redirect to dashboard
-                    window.location.href = '/dashboard.html';
+                    window.location.href = data.redirect || '/dashboard';
                 } else {
                     // Login failed
                     errorMessage.textContent = data.message || 'Nom d\'utilisateur ou mot de passe incorrect';
