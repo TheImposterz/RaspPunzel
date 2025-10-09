@@ -63,10 +63,12 @@ echo -e "${BLUE}  Ligolo-ng - Générateur de Certificats${NC}"
 echo -e "${BLUE}════════════════════════════════════════════════════════════════${NC}"
 echo ""
 
-# Créer le dossier
+# Créer le dossier et initialiser le log
+
 mkdir -p "$CERTS_DIR"
+echo "=== Log ===" > "${CERTS_DIR}/cert-generation.log"
 cd "$CERTS_DIR"
-touch "$LOG_FILE"
+LOG_FILE="$(pwd)/cert-generation.log"
 
 log_info "Début de la génération des certificats"
 log_info "Répertoire: $(pwd)"
@@ -312,7 +314,7 @@ chmod +x start-proxy.sh
 log_success "Script créé: start-proxy.sh"
 
 # Script de déploiement sur l'agent
-cat > deploy-to-agent.sh <<'EOF'
+cat > deploy-to-agent.sh <<'DEPLOY_SCRIPT'
 #!/bin/bash
 # Déployer les certificats sur l'agent RaspPunzel
 
@@ -350,11 +352,7 @@ echo ""
 
 # Copier le certificat CA
 echo -e "${YELLOW}[~] Copie du certificat CA...${NC}"
-EOF
-
-echo "if ! scp ca-cert.pem ${AGENT_USER}@\${AGENT_IP}:/tmp/ 2>&1 | tee -a deploy.log; then" >> deploy-to-agent.sh
-
-cat >> deploy-to-agent.sh <<'EOF'
+if ! scp ca-cert.pem ${AGENT_USER}@${AGENT_IP}:/tmp/ 2>&1 | tee -a deploy.log; then
     echo -e "${RED}[!] Échec de la copie${NC}"
     exit 1
 fi
@@ -411,324 +409,10 @@ else
     echo -e "${RED}[!] Erreur lors du déploiement${NC}"
     exit 1
 fi
-EOF
+DEPLOY_SCRIPT
 
 chmod +x deploy-to-agent.sh
 log_success "Script créé: deploy-to-agent.sh"
-
-# Instructions complètes
-cat > INSTRUCTIONS.md <<EOF
-# Instructions d'utilisation - Ligolo-ng avec certificats
-
-## 📁 Fichiers générés
-
-### Certificats
-- \`ca-cert.pem\` - Certificat de l'Autorité de Certification (Public)
-- \`ca-key.pem\` - Clé privée de la CA (**CONFIDENTIEL**)
-- \`server-cert.pem\` - Certificat du serveur proxy (Public)
-- \`server-key.pem\` - Clé privée du serveur (**CONFIDENTIEL**)
-
-### Scripts
-- \`start-proxy.sh\` - Démarrer le proxy sur la machine d'attaque
-- \`deploy-to-agent.sh\` - Déployer automatiquement sur le Raspberry Pi
-- \`cert-generation.log\` - Log détaillé de la génération
-
----
-
-## 🖥️ Configuration du serveur (Machine d'attaque)
-
-### 1. Créer l'interface TUN
-\`\`\`bash
-sudo ip tuntap add user \$(whoami) mode tun ligolo
-sudo ip link set ligolo up
-\`\`\`
-
-### 2. Démarrer le proxy
-\`\`\`bash
-./start-proxy.sh
-\`\`\`
-
-Ou manuellement:
-\`\`\`bash
-sudo ./proxy \\
-    -certfile $(pwd)/server-cert.pem \\
-    -keyfile $(pwd)/server-key.pem \\
-    -laddr 0.0.0.0:443
-\`\`\`
-
-### 3. Vérifier l'écoute
-\`\`\`bash
-sudo netstat -tulpn | grep 443
-\`\`\`
-
----
-
-## 🍓 Configuration du Raspberry Pi (Agent)
-
-### Option A: Déploiement automatique (Recommandé)
-
-\`\`\`bash
-./deploy-to-agent.sh <IP-DU-RASPBERRY>
-\`\`\`
-
-Exemple:
-\`\`\`bash
-./deploy-to-agent.sh 192.168.1.100
-# ou avec un utilisateur spécifique
-./deploy-to-agent.sh 192.168.1.100 kali
-\`\`\`
-
-Le script va:
-1. ✓ Tester la connexion SSH
-2. ✓ Copier ca-cert.pem sur le Pi
-3. ✓ Installer le certificat dans \`/etc/rasppunzel/certs/\`
-4. ✓ Ajouter le certificat au système
-5. ✓ Mettre à jour la configuration Ligolo
-
-### Option B: Déploiement manuel
-
-#### 1. Copier le certificat
-\`\`\`bash
-scp ca-cert.pem root@<IP-RASPBERRY>:/tmp/
-\`\`\`
-
-#### 2. Sur le Raspberry Pi
-\`\`\`bash
-# Se connecter
-ssh root@<IP-RASPBERRY>
-
-# Installer le certificat
-sudo mkdir -p /etc/rasppunzel/certs
-sudo mv /tmp/ca-cert.pem /etc/rasppunzel/certs/
-sudo chmod 644 /etc/rasppunzel/certs/ca-cert.pem
-
-# Ajouter au système
-sudo cp /etc/rasppunzel/certs/ca-cert.pem /usr/local/share/ca-certificates/ligolo-ca.crt
-sudo update-ca-certificates
-
-# Vérifier
-ls -la /etc/rasppunzel/certs/ca-cert.pem
-\`\`\`
-
-#### 3. Mettre à jour la configuration
-\`\`\`bash
-sudo nano /etc/rasppunzel/ligolo.conf
-\`\`\`
-
-Modifier:
-\`\`\`
-LIGOLO_USE_CERTS="true"
-LIGOLO_IGNORE_CERT="false"
-\`\`\`
-
-### 4. Redémarrer l'agent
-\`\`\`bash
-sudo systemctl restart ligolo-agent
-\`\`\`
-
-### 5. Vérifier les logs
-\`\`\`bash
-sudo journalctl -u ligolo-agent -f
-\`\`\`
-
-Rechercher:
-- ✓ "connected" - Connexion établie
-- ✓ "session created" - Session créée
-- ✗ "certificate" errors - Erreurs de certificat
-
----
-
-## 🔍 Vérification
-
-### Sur le serveur
-\`\`\`bash
-# Vérifier l'écoute
-sudo netstat -tulpn | grep 443
-
-# Test du certificat
-echo | openssl s_client -connect ${SERVER_IP}:443 -CAfile ca-cert.pem
-\`\`\`
-
-### Sur le Raspberry Pi
-\`\`\`bash
-# Statut de l'agent
-ligolo-status
-
-# Configuration
-ligolo-config
-
-# Logs en direct
-ligolo-logs
-
-# Test de connexion
-telnet ${SERVER_IP} 443
-\`\`\`
-
----
-
-## 🌐 Utilisation du tunnel
-
-### 1. Sur le proxy, lister les sessions
-\`\`\`
-ligolo-ng » session
-\`\`\`
-
-### 2. Sélectionner la session
-\`\`\`
-ligolo-ng » session 1
-\`\`\`
-
-### 3. Lister les interfaces réseau
-\`\`\`
-[Agent] » ifconfig
-\`\`\`
-
-### 4. Démarrer le tunnel
-\`\`\`
-[Agent] » start
-\`\`\`
-
-### 5. Ajouter les routes (sur votre machine)
-\`\`\`bash
-# Réseau cible (exemple)
-sudo ip route add 192.168.1.0/24 dev ligolo
-sudo ip route add 10.0.0.0/24 dev ligolo
-
-# Vérifier
-ip route show
-\`\`\`
-
-### 6. Tester
-\`\`\`bash
-# Ping une machine du réseau cible
-ping 192.168.1.50
-
-# Scanner un réseau
-nmap 192.168.1.0/24
-\`\`\`
-
----
-
-## 🔐 Sécurité
-
-### ⚠️ IMPORTANT
-
-**Fichiers confidentiels** - Ne JAMAIS les partager:
-- \`ca-key.pem\` - Clé privée de la CA
-- \`server-key.pem\` - Clé privée du serveur
-
-**Permissions recommandées:**
-\`\`\`bash
-chmod 600 ca-key.pem server-key.pem
-chmod 644 ca-cert.pem server-cert.pem
-\`\`\`
-
-**Ne pas committer dans Git:**
-Le fichier \`.gitignore\` a été créé automatiquement.
-
-### 📦 Sauvegarde
-
-Sauvegardez ces fichiers en lieu sûr:
-- \`ca-key.pem\` (nécessaire pour signer de nouveaux certificats)
-- \`server-key.pem\` et \`server-cert.pem\`
-
-### 📅 Renouvellement
-
-- **CA**: Valide ${CA_DAYS} jours (~10 ans)
-- **Serveur**: Valide ${SERVER_DAYS} jours (1 an)
-
-Pour renouveler le certificat serveur:
-\`\`\`bash
-./generate-ligolo-certs.sh $(pwd)
-\`\`\`
-
----
-
-## 🐛 Dépannage
-
-### L'agent ne se connecte pas
-
-1. Vérifier que le proxy est démarré:
-   \`\`\`bash
-   sudo netstat -tulpn | grep 443
-   \`\`\`
-
-2. Vérifier la connexion réseau:
-   \`\`\`bash
-   # Sur le Pi
-   ping ${SERVER_IP}
-   telnet ${SERVER_IP} 443
-   \`\`\`
-
-3. Vérifier les logs:
-   \`\`\`bash
-   sudo journalctl -u ligolo-agent -n 50
-   \`\`\`
-
-### Erreurs de certificat
-
-1. Vérifier que le certificat est installé:
-   \`\`\`bash
-   ls -la /etc/rasppunzel/certs/ca-cert.pem
-   \`\`\`
-
-2. Vérifier la validité:
-   \`\`\`bash
-   openssl x509 -in /etc/rasppunzel/certs/ca-cert.pem -noout -dates
-   \`\`\`
-
-3. Réinstaller:
-   \`\`\`bash
-   sudo update-ca-certificates --fresh
-   \`\`\`
-
-### Firewall bloque la connexion
-
-\`\`\`bash
-# Sur le serveur
-sudo ufw allow 443/tcp
-
-# Ou iptables
-sudo iptables -A INPUT -p tcp --dport 443 -j ACCEPT
-\`\`\`
-
----
-
-## 📚 Ressources
-
-- **Ligolo-ng**: https://github.com/nicocha30/ligolo-ng
-- **RaspPunzel**: https://github.com/TheImposterz/RaspPunzel
-- **Documentation**: \`cat cert-generation.log\`
-
----
-
-## 📞 Support
-
-En cas de problème:
-
-1. Consultez les logs:
-   - Génération: \`cat cert-generation.log\`
-   - Installation: \`cat /etc/rasppunzel/ligolo-install.log\`
-   - Agent: \`sudo journalctl -u ligolo-agent -n 100\`
-
-2. Vérifiez la configuration:
-   \`\`\`bash
-   ligolo-config
-   \`\`\`
-
-3. Testez la connectivité:
-   \`\`\`bash
-   telnet ${SERVER_IP} 443
-   \`\`\`
-
----
-
-Généré le: $(date)
-Serveur: ${SERVER_IP}:443
-$([ -n "$SERVER_DOMAIN" ] && echo "Domaine: ${SERVER_DOMAIN}")
-EOF
-
-log_success "Documentation créée: INSTRUCTIONS.md"
 
 # Créer .gitignore
 cat > .gitignore <<'EOF'
@@ -773,7 +457,6 @@ echo ""
 echo -e "${YELLOW}Scripts générés:${NC}"
 echo -e "  ${GREEN}✓${NC} start-proxy.sh        (Démarrer le proxy)"
 echo -e "  ${GREEN}✓${NC} deploy-to-agent.sh    (Déployer sur le Pi)"
-echo -e "  ${GREEN}✓${NC} INSTRUCTIONS.md       (Documentation complète)"
 echo -e "  ${GREEN}✓${NC} cert-generation.log   (Log détaillé)"
 echo ""
 
@@ -810,11 +493,6 @@ echo ""
 echo -e "${CYAN}3️⃣  Vérifier la connexion:${NC}"
 echo ""
 echo -e "   Sur le Pi: ${GREEN}ligolo-status${NC}"
-echo ""
-
-echo -e "${CYAN}4️⃣  Documentation complète:${NC}"
-echo ""
-echo -e "   ${GREEN}cat INSTRUCTIONS.md${NC}"
 echo ""
 
 # Warnings de sécurité
