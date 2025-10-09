@@ -1,9 +1,9 @@
 #!/bin/bash
 # =================================================================================================
-# RaspPunzel - Network Setup Script
+# RaspPunzel - Network Setup Script (systemd-networkd based)
 # =================================================================================================
 
-set -e
+set -euo pipefail
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -22,7 +22,7 @@ else
     exit 1
 fi
 
-echo -e "${YELLOW}[~] Configuring network...${NC}"
+echo -e "${YELLOW}[~] Configuring network (systemd-networkd approach)...${NC}"
 
 # =================================================================================================
 # Install required packages
@@ -30,35 +30,266 @@ echo -e "${YELLOW}[~] Configuring network...${NC}"
 
 echo -e "${YELLOW}[~] Installing network packages...${NC}"
 apt-get update -qq
-apt-get install -y -qq dnsmasq hostapd iptables-persistent iproute2 > /dev/null
+apt-get install -y -qq hostapd dnsmasq wpa-supplicant systemd-resolved iproute2 > /dev/null
+
+echo -e "${GREEN}[+] Packages installed${NC}"
 
 # =================================================================================================
-# Stop services for configuration (don't disable NetworkManager!)
+# Disable NetworkManager (causes conflicts)
 # =================================================================================================
 
-systemctl stop dnsmasq 2>/dev/null || true
-systemctl stop hostapd 2>/dev/null || true
+echo -e "${YELLOW}[~] Disabling NetworkManager...${NC}"
+systemctl stop NetworkManager 2>/dev/null || true
+systemctl disable NetworkManager 2>/dev/null || true
+
+echo -e "${GREEN}[+] NetworkManager disabled${NC}"
 
 # =================================================================================================
-# Configure NetworkManager to ignore AP interface
+# Backup and create minimal /etc/network/interfaces
+# =================================================================================================
+
+echo -e "${YELLOW}[~] Configuring /etc/network/interfaces...${NC}"
+
+if [[ -f /etc/network/interfaces ]]; then
+    cp /etc/network/interfaces /etc/network/interfaces.backup.$(date +%s)
+fi
+
+cat > /etc/network/interfaces <<'EOF'
+# RaspPunzel - Minimal interfaces file
+# Network management via systemd-networkd
+
+auto lo
+iface lo inet loopback
+EOF
+
+echo -e "${GREEN}[+] /etc/network/interfaces configured${NC}"
+
+# =================================================================================================
+# Enable systemd-networkd and systemd-resolved
+# =================================================================================================
+
+echo -e "${YELLOW}[~] Enabling systemd-networkd & systemd-resolved...${NC}"
+
+systemctl enable systemd-networkd
+systemctl enable systemd-resolved
+
+# Link resolv.conf to systemd-resolved
+ln -sf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
+
+echo -e "${GREEN}[+] systemd services enabled${NC}"
+
+# =================================================================================================
+# Configure wpa_supplicant for internet connection
+# =================================================================================================
+
+if [[ -n "${WIFI_SSID}" && "${WIFI_SSID}" != "NotUsed" ]]; then
+    echo -e "${YELLOW}[~] Configuring wpa_supplicant for internet (wlan0)...${NC}"
+    
+    mkdir -p /etc/wpa_supplicant
+    
+    cat > /etc/wpa_supplicant/wpa_supplicant-wlan0.conf <<EOF
+ctrl_interface=DIR=/run/wpa_supplicant GROUP=netdev
+update_config=1
+country=FR
+
+network={
+    ssid="${WIFI_SSID}"
+    psk="${WIFI_PASSPHRASE}"
+    key_mgmt=WPA-PSK
+}
+EOF
+    
+    chmod 600 /etc/wpa_supplicant/wpa_supplicant-wlan0.conf
+    
+    # Enable wpa_supplicant service for wlan0
+    systemctl enable wpa_supplicant@wlan0.service
+    
+    echo -e "${GREEN}[+] wpa_supplicant configured for wlan0${NC}"
+fi
+
+# =================================================================================================
+# Configure systemd-networkd for wlan0 (internet uplink)
+# =================================================================================================
+
+echo -e "${YELLOW}[~] Configuring systemd-networkd for wlan0 (uplink)...${NC}"
+
+mkdir -p /etc/systemd/network
+
+cat > /etc/systemd/network/10-wlan0.network <<EOF
+# RaspPunzel - Internet uplink via wlan0
+
+[Match]
+Name=wlan0
+
+[Network]
+DHCP=yes
+IPv6AcceptRA=yes
+IPMasquerade=ipv4
+IPForward=ipv4
+DNS=1.1.1.1
+DNS=9.9.9.9
+
+[DHCP]
+RouteMetric=100
+EOF
+
+echo -e "${GREEN}[+] wlan0 configured (DHCP + NAT)${NC}"
+
+# =================================================================================================
+# Configure Admin Access Point
 # =================================================================================================
 
 if [[ -n "${WLAN_INTERFACE_ADMIN}" && "${WLAN_INTERFACE_ADMIN}" != "none" ]]; then
-    echo -e "${YELLOW}[~] Configuring NetworkManager to ignore ${WLAN_INTERFACE_ADMIN}...${NC}"
+    echo -e "${YELLOW}[~] Configuring Admin Access Point on ${WLAN_INTERFACE_ADMIN}...${NC}"
     
-    mkdir -p /etc/NetworkManager/conf.d
-    
-    cat > /etc/NetworkManager/conf.d/99-rasppunzel-ap.conf <<EOF
-# RaspPunzel - Ignore AP interface
-[keyfile]
-unmanaged-devices=interface-name:${WLAN_INTERFACE_ADMIN}
+    # systemd-networkd config for AP interface
+    cat > /etc/systemd/network/20-${WLAN_INTERFACE_ADMIN}.network <<EOF
+# RaspPunzel - Admin Access Point interface
+
+[Match]
+Name=${WLAN_INTERFACE_ADMIN}
+
+[Network]
+Address=${ADMIN_AP_IP}/24
+ConfigureWithoutCarrier=yes
 EOF
 
-    # Reload NetworkManager
-    systemctl reload NetworkManager 2>/dev/null || true
+    # dnsmasq configuration
+    mkdir -p /etc/dnsmasq.d
     
-    echo -e "${GREEN}[+] NetworkManager configured${NC}"
+    cat > /etc/dnsmasq.d/rasppunzel.conf <<EOF
+# RaspPunzel DHCP/DNS Configuration
+
+interface=${WLAN_INTERFACE_ADMIN}
+bind-interfaces
+listen-address=${ADMIN_AP_IP}
+dhcp-range=${ADMIN_AP_DHCP_START},${ADMIN_AP_DHCP_END},${ADMIN_AP_NETMASK},${ADMIN_AP_DHCP_LEASE}
+dhcp-option=3,${ADMIN_AP_IP}
+dhcp-option=6,${ADMIN_AP_DNS_PRIMARY},${ADMIN_AP_DNS_SECONDARY}
+EOF
+
+    # hostapd configuration
+    cat > /etc/hostapd/hostapd.conf <<EOF
+# RaspPunzel Admin Access Point
+
+interface=${WLAN_INTERFACE_ADMIN}
+driver=nl80211
+ssid=${ADMIN_AP_SSID}
+country_code=FR
+hw_mode=g
+channel=${ADMIN_AP_CHANNEL}
+wmm_enabled=1
+ieee80211n=1
+macaddr_acl=0
+ignore_broadcast_ssid=${ADMIN_AP_HIDDEN}
+auth_algs=1
+wpa=2
+wpa_passphrase=${ADMIN_AP_PASSPHRASE}
+wpa_key_mgmt=WPA-PSK
+rsn_pairwise=CCMP
+EOF
+
+    # Configure hostapd default file
+    if grep -q '^#\?DAEMON_CONF' /etc/default/hostapd 2>/dev/null; then
+        sed -i 's|^#\?DAEMON_CONF=.*|DAEMON_CONF="/etc/hostapd/hostapd.conf"|' /etc/default/hostapd
+    else
+        echo 'DAEMON_CONF="/etc/hostapd/hostapd.conf"' >> /etc/default/hostapd
+    fi
+    
+    echo -e "${GREEN}[+] Admin AP configured on ${WLAN_INTERFACE_ADMIN}${NC}"
 fi
+
+# =================================================================================================
+# Start services
+# =================================================================================================
+
+echo -e "${YELLOW}[~] Starting services...${NC}"
+
+# Restart systemd-networkd to apply config
+systemctl restart systemd-networkd
+systemctl restart systemd-resolved
+
+# Wait a bit for interfaces to settle
+sleep 2
+
+# Force interfaces UP
+if [[ -n "${WLAN_INTERFACE_ADMIN}" && "${WLAN_INTERFACE_ADMIN}" != "none" ]]; then
+    ip link set ${WLAN_INTERFACE_ADMIN} up 2>/dev/null || true
+fi
+ip link set wlan0 up 2>/dev/null || true
+
+# Start wpa_supplicant for internet
+if [[ -n "${WIFI_SSID}" && "${WIFI_SSID}" != "NotUsed" ]]; then
+    systemctl start wpa_supplicant@wlan0.service
+fi
+
+# Start dnsmasq and hostapd
+if [[ -n "${WLAN_INTERFACE_ADMIN}" && "${WLAN_INTERFACE_ADMIN}" != "none" ]]; then
+    systemctl enable dnsmasq
+    systemctl restart dnsmasq
+    
+    systemctl unmask hostapd
+    systemctl enable hostapd
+    systemctl restart hostapd
+fi
+
+sleep 2
+
+echo -e "${GREEN}[+] Services started${NC}"
+
+# =================================================================================================
+# Summary
+# =================================================================================================
+
+echo ""
+echo -e "${GREEN}═══════════════════════════════════════════════════════════════${NC}"
+echo -e "${GREEN}           Network Configuration Complete${NC}"
+echo -e "${GREEN}═══════════════════════════════════════════════════════════════${NC}"
+echo ""
+
+echo -e "${BLUE}Network Manager:${NC}"
+echo -e "  NetworkManager: ${RED}disabled${NC} (causes conflicts)"
+echo -e "  systemd-networkd: ${GREEN}enabled${NC}"
+echo -e "  systemd-resolved: ${GREEN}enabled${NC}"
+echo ""
+
+echo -e "${BLUE}Internet Uplink:${NC}"
+echo -e "  Interface: wlan0 (built-in WiFi)"
+if [[ -n "${WIFI_SSID}" && "${WIFI_SSID}" != "NotUsed" ]]; then
+    echo -e "  SSID: ${WIFI_SSID}"
+    echo -e "  Method: wpa_supplicant + DHCP"
+else
+    echo -e "  ${YELLOW}No WiFi credentials configured${NC}"
+fi
+echo -e "  NAT: ${GREEN}enabled${NC} (IPMasquerade)"
+echo ""
+
+if [[ -n "${WLAN_INTERFACE_ADMIN}" && "${WLAN_INTERFACE_ADMIN}" != "none" ]]; then
+    echo -e "${BLUE}Admin Access Point:${NC}"
+    echo -e "  Interface: ${WLAN_INTERFACE_ADMIN}"
+    echo -e "  SSID: ${ADMIN_AP_SSID} $([ "${ADMIN_AP_HIDDEN}" == "1" ] && echo "(hidden)")"
+    echo -e "  Password: ${ADMIN_AP_PASSPHRASE}"
+    echo -e "  IP: ${ADMIN_AP_IP}"
+    echo -e "  DHCP: ${ADMIN_AP_DHCP_START} - ${ADMIN_AP_DHCP_END}"
+    echo ""
+fi
+
+echo -e "${BLUE}Services:${NC}"
+echo -e "  systemd-networkd: $(systemctl is-active systemd-networkd)"
+echo -e "  systemd-resolved: $(systemctl is-active systemd-resolved)"
+if [[ -n "${WIFI_SSID}" && "${WIFI_SSID}" != "NotUsed" ]]; then
+    echo -e "  wpa_supplicant@wlan0: $(systemctl is-active wpa_supplicant@wlan0 2>/dev/null || echo 'inactive')"
+fi
+if [[ -n "${WLAN_INTERFACE_ADMIN}" && "${WLAN_INTERFACE_ADMIN}" != "none" ]]; then
+    echo -e "  hostapd: $(systemctl is-active hostapd)"
+    echo -e "  dnsmasq: $(systemctl is-active dnsmasq)"
+fi
+
+echo ""
+echo -e "${YELLOW}Note: A reboot is recommended to ensure all changes take effect${NC}"
+echo -e "${YELLOW}      sudo reboot${NC}"
+echo ""
+
 
 # =================================================================================================
 # Configure persistent interface names
