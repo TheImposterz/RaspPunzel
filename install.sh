@@ -353,6 +353,47 @@ EOF
     chmod 600 "${SUMMARY_FILE}"
     log "INFO" "Installation summary: ${SUMMARY_FILE}"
 }
+install_pentest_tools() {
+    if [[ "${ENABLE_PENTEST_TOOLS}" == "true" ]]; then
+        log "INFO" "Installing pentest WiFi tools..."
+        bash "${SCRIPTS_DIR}/install-pentest-tools.sh" || {
+            log "ERROR" "Pentest tools installation failed"
+            exit 1
+        }
+    else
+        log "INFO" "Pentest tools disabled in config"
+    fi
+}
+
+ask_pentest_tools() {
+    echo ""
+    echo -e "${BLUE}═══════════════════════════════════════════════════════════════${NC}"
+    echo -e "${BLUE}           Pentest WiFi Tools Configuration${NC}"
+    echo -e "${BLUE}═══════════════════════════════════════════════════════════════${NC}"
+    echo ""
+    echo -e "Install WiFi pentesting tools?"
+    echo ""
+    echo -e "${YELLOW}This includes:${NC}"
+    echo -e "  - Basic: wifite, reaver, bully, mdk4, kismet"
+    echo -e "  - Handshake: hcxdumptool, hcxtools, cowpatty"
+    echo -e "  - Rogue AP: hostapd-wpe, hostapd-mana"
+    echo -e "  - Advanced: Wifipumpkin3, Wifiphisher, Fluxion"
+    echo -e "  - EAP: EAPHammer, crEAP"
+    echo -e "  - Other: Airgeddon, Berate_ap, WPA_Sycophant"
+    echo ""
+    echo -e "${YELLOW}Note: This will download ~500MB and take 15-30 minutes${NC}"
+    echo ""
+    
+    read -p "Install pentest tools? [Y/n]: " -r
+    if [[ ! $REPLY =~ ^[Nn]$ ]]; then
+        ENABLE_PENTEST_TOOLS="true"
+        log "INFO" "Pentest tools will be installed"
+    else
+        ENABLE_PENTEST_TOOLS="false"
+        log "INFO" "Pentest tools disabled"
+    fi
+}
+
 
 # =================================================================================================
 # Main Installation Flow
@@ -391,6 +432,7 @@ main() {
     # Interactive questions
     ask_web_dashboard
     ask_certbot
+    ask_pentest_tools
     ask_headless_mode
     
     # Show installation plan
@@ -414,6 +456,12 @@ main() {
         echo -e "  ${YELLOW}○${NC} Certbot SSL (skipped)"
     fi
     
+    if [[ "${ENABLE_PENTEST_TOOLS}" == "true" ]]; then    # <-- AJOUTER ICI
+        echo -e "  ${GREEN}✓${NC} Pentest WiFi Tools (~500MB)"
+    else
+        echo -e "  ${YELLOW}○${NC} Pentest WiFi Tools (skipped)"
+    fi
+
     if [[ "${ENABLE_HEADLESS_MODE}" == "true" ]]; then
         echo -e "  ${GREEN}✓${NC} Headless Mode (remove GUI, auto-start)"
     else
@@ -441,6 +489,7 @@ main() {
     setup_network
     install_web_dashboard
     install_certbot
+    install_pentest_tools
     configure_services
     create_management_scripts
     
