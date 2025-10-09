@@ -6,7 +6,7 @@ Transform your Raspberry Pi into a portable pentest drop box with Ligolo-ng tunn
 
 ![img](/img/archi.svg)
 
-[![License: GPL V3](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![License: GPL V3](https://img.shields.io/badge/License-GPL-3.0-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Raspberry%20Pi-red.svg)](https://www.raspberrypi.org/)
 
 ---
