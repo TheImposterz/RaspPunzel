@@ -1,43 +1,41 @@
 #!/bin/bash
-
 # =================================================================================================
 # RaspPunzel - Lightweight Network Pivot with Ligolo-ng
 # =================================================================================================
-# Main Installation Script
+# Main Installation Script - Interactive installation that configures headless operation
 # =================================================================================================
 
-set -e  # Exit on error
+set -e
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
 # Project paths
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPTS_DIR="${PROJECT_ROOT}/scripts"
-WEB_DIR="${PROJECT_ROOT}/web"
 CONFIG_DIR="${PROJECT_ROOT}/config"
-
-# Installation log
 INSTALL_LOG="/var/log/rasppunzel-install.log"
 
-# Banner
+# =================================================================================================
+# Helper Functions
+# =================================================================================================
+
 print_banner() {
     clear
     echo -e "${GREEN}"
     echo "╔═══════════════════════════════════════════════════════════════╗"
     echo "║                                                               ║"
-    echo "║              🚀 RaspPunzel Installation 🚀                    ║"
+    echo "║            🚀 RaspPunzel Installation 🚀                      ║"
     echo "║                                                               ║"
-    echo "║          Lightweight Network Pivot with Ligolo-ng            ║"
+    echo "║        Lightweight Network Pivot with Ligolo-ng              ║"
     echo "║                                                               ║"
     echo "╚═══════════════════════════════════════════════════════════════╝"
     echo -e "${NC}"
 }
 
-# Logging function
 log() {
     local level=$1
     shift
@@ -46,19 +44,16 @@ log() {
     echo "[${timestamp}] [${level}] ${message}" | tee -a "${INSTALL_LOG}"
 }
 
-# Check if running as root
 check_root() {
     if [[ $EUID -ne 0 ]]; then
-        echo -e "${RED}[!] This script must be run as root${NC}" 
+        echo -e "${RED}[!] This script must be run as root${NC}"
         exit 1
     fi
 }
 
-# Check system requirements
 check_requirements() {
     log "INFO" "Checking system requirements..."
     
-    # Check OS
     if [[ ! -f /etc/os-release ]]; then
         log "ERROR" "Cannot determine OS version"
         exit 1
@@ -67,7 +62,6 @@ check_requirements() {
     source /etc/os-release
     log "INFO" "Detected OS: ${PRETTY_NAME}"
     
-    # Check architecture
     ARCH=$(uname -m)
     log "INFO" "Architecture: ${ARCH}"
     
@@ -76,7 +70,6 @@ check_requirements() {
         exit 1
     fi
     
-    # Check available disk space (minimum 2GB)
     AVAILABLE_SPACE=$(df / | tail -1 | awk '{print $4}')
     if [[ ${AVAILABLE_SPACE} -lt 2097152 ]]; then
         log "WARN" "Low disk space detected. At least 2GB recommended."
@@ -85,7 +78,6 @@ check_requirements() {
     log "INFO" "System requirements check passed"
 }
 
-# Load configuration
 load_config() {
     log "INFO" "Loading configuration..."
     
@@ -93,142 +85,184 @@ load_config() {
         source "${PROJECT_ROOT}/config.sh"
         log "INFO" "Configuration loaded from config.sh"
     else
-        log "WARN" "No config.sh found, using defaults"
+        log "ERROR" "config.sh not found!"
+        exit 1
     fi
 }
 
-# Installation menu
-show_menu() {
-    echo -e "${BLUE}"
-    echo "════════════════════════════════════════════════════════════════"
-    echo "  Installation Options"
-    echo "════════════════════════════════════════════════════════════════"
-    echo -e "${NC}"
-    echo "  1) Full Installation (Recommended)"
-    echo "     - Ligolo-ng proxy"
-    echo "     - Admin WiFi AP"
-    echo "     - Web Dashboard"
-    echo "     - All network services"
+# =================================================================================================
+# Interactive Configuration
+# =================================================================================================
+
+ask_headless_mode() {
     echo ""
-    echo "  2) Minimal Installation"
-    echo "     - Ligolo-ng proxy only"
-    echo "     - SSH access"
-    echo "     - No web dashboard"
+    echo -e "${BLUE}═══════════════════════════════════════════════════════════════${NC}"
+    echo -e "${BLUE}              Headless Mode Configuration${NC}"
+    echo -e "${BLUE}═══════════════════════════════════════════════════════════════${NC}"
     echo ""
-    echo "  3) Custom Installation"
-    echo "     - Choose components individually"
+    echo -e "${YELLOW}Headless mode removes the graphical interface and configures${NC}"
+    echo -e "${YELLOW}the system for unattended operation:${NC}"
     echo ""
-    echo "  4) Exit"
+    echo -e "  ${GREEN}✓${NC} Remove GUI (X11, Desktop Environment)"
+    echo -e "  ${GREEN}✓${NC} Auto-login to console at boot"
+    echo -e "  ${GREEN}✓${NC} Auto-start all services"
+    echo -e "  ${GREEN}✓${NC} Free ~500MB RAM"
+    echo -e "  ${GREEN}✓${NC} Faster boot time"
     echo ""
-    echo -e "${BLUE}════════════════════════════════════════════════════════════════${NC}"
-    echo -n "Select option [1-4]: "
+    echo -e "${YELLOW}Access will be via:${NC}"
+    echo -e "  - SSH (recommended)"
+    echo -e "  - Serial console"
+    echo -e "  - Web dashboard (if enabled)"
+    echo ""
+    echo -e "${RED}Note: GUI can be restored later if needed${NC}"
+    echo ""
+    
+    read -p "Enable headless mode? [Y/n]: " -r
+    if [[ ! $REPLY =~ ^[Nn]$ ]]; then
+        ENABLE_HEADLESS_MODE="true"
+        log "INFO" "Headless mode will be enabled"
+    else
+        ENABLE_HEADLESS_MODE="false"
+        log "INFO" "Headless mode disabled - GUI will be kept"
+    fi
 }
 
-# Full installation
-full_install() {
-    log "INFO" "Starting full installation..."
+ask_web_dashboard() {
+    echo ""
+    echo -e "${BLUE}═══════════════════════════════════════════════════════════════${NC}"
+    echo -e "${BLUE}              Web Dashboard Configuration${NC}"
+    echo -e "${BLUE}═══════════════════════════════════════════════════════════════${NC}"
+    echo ""
+    echo -e "The web dashboard provides:"
+    echo -e "  ${GREEN}✓${NC} Real-time system monitoring"
+    echo -e "  ${GREEN}✓${NC} Service management"
+    echo -e "  ${GREEN}✓${NC} Ligolo-ng status and control"
+    echo -e "  ${GREEN}✓${NC} Network adapter management"
+    echo -e "  ${GREEN}✓${NC} WiFi AP control"
+    echo ""
     
-    # Step 1: Install Ligolo-ng
-    echo -e "\n${YELLOW}[~] Installing Ligolo-ng...${NC}"
+    read -p "Install web dashboard? [Y/n]: " -r
+    if [[ ! $REPLY =~ ^[Nn]$ ]]; then
+        ENABLE_WEB_DASHBOARD="true"
+        log "INFO" "Web dashboard will be installed"
+    else
+        ENABLE_WEB_DASHBOARD="false"
+        log "INFO" "Web dashboard disabled"
+    fi
+}
+
+ask_certbot() {
+    if [[ "${ENABLE_WEB_DASHBOARD}" == "true" ]]; then
+        echo ""
+        echo -e "${BLUE}═══════════════════════════════════════════════════════════════${NC}"
+        echo -e "${BLUE}              SSL Certificate Configuration${NC}"
+        echo -e "${BLUE}═══════════════════════════════════════════════════════════════${NC}"
+        echo ""
+        echo -e "Certbot can automatically provision and renew SSL certificates"
+        echo -e "from Let's Encrypt for secure HTTPS access."
+        echo ""
+        echo -e "${YELLOW}Requirements:${NC}"
+        echo -e "  - A domain name"
+        echo -e "  - DNS configured (A record pointing to this server)"
+        echo -e "  - DNS API credentials (for DNS-01 challenge)"
+        echo ""
+        
+        read -p "Install Certbot for SSL? [y/N]: " -r
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            ENABLE_CERTBOT="true"
+            log "INFO" "Certbot will be installed"
+        else
+            ENABLE_CERTBOT="false"
+            log "INFO" "Certbot disabled"
+        fi
+    else
+        ENABLE_CERTBOT="false"
+    fi
+}
+
+# =================================================================================================
+# Installation Functions
+# =================================================================================================
+
+install_ligolo() {
+    log "INFO" "Installing Ligolo-ng..."
     bash "${SCRIPTS_DIR}/install-ligolo.sh" || {
         log "ERROR" "Ligolo-ng installation failed"
         exit 1
     }
-    
-    # Step 2: Setup network
-    echo -e "\n${YELLOW}[~] Configuring network...${NC}"
+}
+
+setup_network() {
+    log "INFO" "Configuring network..."
     bash "${SCRIPTS_DIR}/setup-network.sh" || {
         log "ERROR" "Network setup failed"
         exit 1
     }
-    
-    # Step 3: Install web dashboard
-    echo -e "\n${YELLOW}[~] Installing web dashboard...${NC}"
-    bash "${SCRIPTS_DIR}/install-web-dashboard.sh" || {
-        log "ERROR" "Web dashboard installation failed"
-        exit 1
-    }
-    
-    # Step 4: Configure services
-    echo -e "\n${YELLOW}[~] Configuring services...${NC}"
+}
+
+install_web_dashboard() {
+    if [[ "${ENABLE_WEB_DASHBOARD}" == "true" ]]; then
+        log "INFO" "Installing web dashboard..."
+        bash "${SCRIPTS_DIR}/install-web-dashboard.sh" || {
+            log "ERROR" "Web dashboard installation failed"
+            exit 1
+        }
+    else
+        log "INFO" "Skipping web dashboard (disabled)"
+    fi
+}
+
+install_certbot() {
+    if [[ "${ENABLE_CERTBOT}" == "true" ]]; then
+        log "INFO" "Installing Certbot..."
+        bash "${SCRIPTS_DIR}/install-certbot.sh" || {
+            log "ERROR" "Certbot installation failed"
+            exit 1
+        }
+    else
+        log "INFO" "Skipping Certbot (disabled)"
+    fi
+}
+
+configure_services() {
+    log "INFO" "Configuring services..."
     bash "${SCRIPTS_DIR}/service-manager.sh" setup || {
         log "ERROR" "Service configuration failed"
         exit 1
     }
-    
-    log "INFO" "Full installation completed successfully"
 }
 
-# Minimal installation
-minimal_install() {
-    log "INFO" "Starting minimal installation..."
-    
-    # Only install Ligolo-ng
-    echo -e "\n${YELLOW}[~] Installing Ligolo-ng...${NC}"
-    bash "${SCRIPTS_DIR}/install-ligolo.sh" minimal || {
-        log "ERROR" "Ligolo-ng installation failed"
-        exit 1
-    }
-    
-    log "INFO" "Minimal installation completed successfully"
+convert_to_headless() {
+    if [[ "${ENABLE_HEADLESS_MODE}" == "true" ]]; then
+        log "INFO" "Converting system to headless mode..."
+        echo ""
+        echo -e "${YELLOW}═══════════════════════════════════════════════════════════════${NC}"
+        echo -e "${YELLOW}              Converting to Headless Mode${NC}"
+        echo -e "${YELLOW}═══════════════════════════════════════════════════════════════${NC}"
+        echo ""
+        
+        bash "${SCRIPTS_DIR}/convert-to-headless.sh" || {
+            log "ERROR" "Headless conversion failed"
+            exit 1
+        }
+    else
+        log "INFO" "Skipping headless conversion (disabled)"
+    fi
 }
 
-# Custom installation
-custom_install() {
-    log "INFO" "Starting custom installation..."
+create_management_scripts() {
+    log "INFO" "Creating management scripts..."
     
-    echo -e "\n${BLUE}Select components to install:${NC}"
-    echo ""
-    
-    read -p "Install Ligolo-ng? [Y/n]: " install_ligolo
-    read -p "Install Admin WiFi AP? [Y/n]: " install_ap
-    read -p "Install Web Dashboard? [Y/n]: " install_web
-    
-    # Install Ligolo-ng
-    if [[ ! "${install_ligolo}" =~ ^[Nn]$ ]]; then
-        echo -e "\n${YELLOW}[~] Installing Ligolo-ng...${NC}"
-        bash "${SCRIPTS_DIR}/install-ligolo.sh" || exit 1
-    fi
-    
-    # Install AP
-    if [[ ! "${install_ap}" =~ ^[Nn]$ ]]; then
-        echo -e "\n${YELLOW}[~] Setting up Admin AP...${NC}"
-        bash "${SCRIPTS_DIR}/setup-network.sh" ap-only || exit 1
-    fi
-    
-    # Install web dashboard
-    if [[ ! "${install_web}" =~ ^[Nn]$ ]]; then
-        echo -e "\n${YELLOW}[~] Installing web dashboard...${NC}"
-        bash "${SCRIPTS_DIR}/install-web-dashboard.sh" || exit 1
-    fi
-    
-    log "INFO" "Custom installation completed"
-}
-
-# Post-installation
-post_install() {
-    log "INFO" "Running post-installation tasks..."
-    
-    # Create management scripts links
     ln -sf "${SCRIPTS_DIR}/start-services.sh" /usr/local/bin/rasppunzel-start
     ln -sf "${SCRIPTS_DIR}/stop-services.sh" /usr/local/bin/rasppunzel-stop
     ln -sf "${SCRIPTS_DIR}/service-manager.sh" /usr/local/bin/rasppunzel-manager
     
-    # Set proper permissions
     chmod +x "${SCRIPTS_DIR}"/*.sh
     chmod +x /usr/local/bin/rasppunzel-*
     
-    # Create documentation directory
-    mkdir -p /opt/rasppunzel/docs
-    cp "${PROJECT_ROOT}/README.md" /opt/rasppunzel/docs/ 2>/dev/null || true
-    
-    # Generate summary
-    generate_summary
-    
-    log "INFO" "Post-installation completed"
+    log "INFO" "Management scripts created"
 }
 
-# Generate installation summary
 generate_summary() {
     local SUMMARY_FILE="/root/RASPPUNZEL-INFO.txt"
     
@@ -241,47 +275,89 @@ Installation Date: $(date '+%Y-%m-%d %H:%M:%S')
 Hostname: $(hostname)
 IP Addresses: $(hostname -I)
 
+CONFIGURATION:
+  Headless Mode: ${ENABLE_HEADLESS_MODE}
+  Web Dashboard: ${ENABLE_WEB_DASHBOARD}
+  SSL/Certbot: ${ENABLE_CERTBOT}
+
 QUICK START COMMANDS:
-  rasppunzel-start        Start all services
-  rasppunzel-stop         Stop all services
-  rasppunzel-manager      Interactive management menu
+  rasppunzel-start    Start all services
+  rasppunzel-stop     Stop all services
+  rasppunzel-manager  Interactive management menu
 
 LIGOLO-NG:
-  Proxy Port: 11601
-  TUN Interface: ligolo
-  Status: systemctl status ligolo-proxy
+  Proxy Host: ${LIGOLO_PROXY_HOST}
+  Proxy Port: ${LIGOLO_PROXY_PORT}
+  Status: systemctl status ligolo-agent
 
-ADMIN ACCESS POINT:
-  SSID: ${ADMIN_AP_SSID:-PIVOT_ADMIN}
-  Password: ${ADMIN_AP_PASSPHRASE:-Check config}
-  IP: ${ADMIN_AP_IP:-10.0.0.1}
+EOF
 
+    if [[ "${ENABLE_WEB_DASHBOARD}" == "true" ]]; then
+        cat >> "${SUMMARY_FILE}" <<EOF
 WEB DASHBOARD:
-  URL: http://$(hostname -I | awk '{print $1}'):5000
-  Credentials: Check /opt/rasppunzel/web/.credentials
+  URL: http://$(hostname -I | awk '{print $1}'):8080
+  Username: admin
+  Password: rasppunzel
+  
+  ⚠️  IMPORTANT: Change default password after first login!
+  Credentials file: /opt/rasppunzel/web/.credentials
+
+EOF
+    fi
+
+    if [[ "${ENABLE_HEADLESS_MODE}" == "true" ]]; then
+        cat >> "${SUMMARY_FILE}" <<EOF
+HEADLESS MODE:
+  GUI removed: Yes (~500MB RAM freed)
+  Auto-login: Yes (console on tty1)
+  Services auto-start: Yes
+  
+  Access methods:
+    - SSH: ssh root@$(hostname -I | awk '{print $1}')
+    - Serial console (if available)
+    - Web dashboard: http://$(hostname -I | awk '{print $1}'):8080
+  
+  Recovery:
+    If you need GUI back: rasppunzel-restore-gui.sh
+
+EOF
+    fi
+
+    cat >> "${SUMMARY_FILE}" <<EOF
+SERVICES STATUS:
+EOF
+
+    for service in ssh ligolo-agent hostapd dnsmasq rasppunzel-web nginx; do
+        if systemctl is-enabled "$service" &>/dev/null; then
+            echo "  ✓ $service: enabled" >> "${SUMMARY_FILE}"
+        fi
+    done
+
+    cat >> "${SUMMARY_FILE}" <<EOF
 
 IMPORTANT FILES:
   Install Log: ${INSTALL_LOG}
   Config: ${PROJECT_ROOT}/config.sh
   Scripts: ${SCRIPTS_DIR}
-
-DOCUMENTATION:
-  Main: cat /opt/rasppunzel/docs/README.md
-  This file: cat ${SUMMARY_FILE}
+  This file: ${SUMMARY_FILE}
 
 NEXT STEPS:
-  1. Review configuration: nano ${PROJECT_ROOT}/config.sh
-  2. Start services: rasppunzel-start
-  3. Check status: rasppunzel-manager status
-  4. Access web dashboard or connect agent
+  1. Review this summary
+  2. REBOOT to apply all changes: reboot
+  3. After reboot, services will start automatically
+  4. Access via SSH or web dashboard
 
 ═══════════════════════════════════════════════════════════════
 EOF
 
-    log "INFO" "Installation summary created at ${SUMMARY_FILE}"
+    chmod 600 "${SUMMARY_FILE}"
+    log "INFO" "Installation summary: ${SUMMARY_FILE}"
 }
 
-# Main installation flow
+# =================================================================================================
+# Main Installation Flow
+# =================================================================================================
+
 main() {
     print_banner
     check_root
@@ -295,58 +371,118 @@ main() {
     check_requirements
     load_config
     
-    # Show menu
-    while true; do
-        show_menu
-        read choice
-        
-        case $choice in
-            1)
-                echo -e "\n${GREEN}Starting full installation...${NC}\n"
-                full_install
-                break
-                ;;
-            2)
-                echo -e "\n${GREEN}Starting minimal installation...${NC}\n"
-                minimal_install
-                break
-                ;;
-            3)
-                custom_install
-                break
-                ;;
-            4)
-                echo -e "\n${YELLOW}Installation cancelled.${NC}"
-                exit 0
-                ;;
-            *)
-                echo -e "\n${RED}Invalid option. Please try again.${NC}\n"
-                sleep 2
-                ;;
-        esac
-    done
+    echo ""
+    echo -e "${GREEN}Welcome to RaspPunzel interactive installation!${NC}"
+    echo ""
+    echo -e "This installer will:"
+    echo -e "  1. Install Ligolo-ng agent"
+    echo -e "  2. Configure network and services"
+    echo -e "  3. Optionally install web dashboard"
+    echo -e "  4. Optionally configure SSL"
+    echo -e "  5. Optionally convert to headless mode"
+    echo ""
     
-    # Post-installation
-    post_install
+    read -p "Continue? [Y/n]: " -r
+    if [[ $REPLY =~ ^[Nn]$ ]]; then
+        echo -e "\n${YELLOW}Installation cancelled.${NC}"
+        exit 0
+    fi
+    
+    # Interactive questions
+    ask_web_dashboard
+    ask_certbot
+    ask_headless_mode
+    
+    # Show installation plan
+    echo ""
+    echo -e "${BLUE}═══════════════════════════════════════════════════════════════${NC}"
+    echo -e "${BLUE}                   Installation Plan${NC}"
+    echo -e "${BLUE}═══════════════════════════════════════════════════════════════${NC}"
+    echo ""
+    echo -e "  ${GREEN}✓${NC} Ligolo-ng Agent"
+    echo -e "  ${GREEN}✓${NC} Network Configuration"
+    
+    if [[ "${ENABLE_WEB_DASHBOARD}" == "true" ]]; then
+        echo -e "  ${GREEN}✓${NC} Web Dashboard"
+    else
+        echo -e "  ${YELLOW}○${NC} Web Dashboard (skipped)"
+    fi
+    
+    if [[ "${ENABLE_CERTBOT}" == "true" ]]; then
+        echo -e "  ${GREEN}✓${NC} Certbot SSL"
+    else
+        echo -e "  ${YELLOW}○${NC} Certbot SSL (skipped)"
+    fi
+    
+    if [[ "${ENABLE_HEADLESS_MODE}" == "true" ]]; then
+        echo -e "  ${GREEN}✓${NC} Headless Mode (remove GUI, auto-start)"
+    else
+        echo -e "  ${YELLOW}○${NC} Headless Mode (skipped - GUI kept)"
+    fi
+    
+    echo ""
+    echo -e "${BLUE}═══════════════════════════════════════════════════════════════${NC}"
+    echo ""
+    
+    read -p "Start installation with this configuration? [Y/n]: " -r
+    if [[ $REPLY =~ ^[Nn]$ ]]; then
+        echo -e "\n${YELLOW}Installation cancelled.${NC}"
+        exit 0
+    fi
+    
+    # Execute installation steps
+    echo ""
+    echo -e "${GREEN}═══════════════════════════════════════════════════════════════${NC}"
+    echo -e "${GREEN}              Starting Installation...${NC}"
+    echo -e "${GREEN}═══════════════════════════════════════════════════════════════${NC}"
+    echo ""
+    
+    install_ligolo
+    setup_network
+    install_web_dashboard
+    install_certbot
+    configure_services
+    create_management_scripts
+    
+    # Headless conversion LAST - after everything is installed
+    convert_to_headless
+    
+    generate_summary
     
     # Final message
-    echo -e "\n${GREEN}"
-    echo "═══════════════════════════════════════════════════════════════"
-    echo "           ✓ RaspPunzel Installation Complete!"
-    echo "═══════════════════════════════════════════════════════════════"
-    echo -e "${NC}"
-    echo -e "Installation summary: ${BLUE}/root/RASPPUNZEL-INFO.txt${NC}"
+    echo ""
+    echo -e "${GREEN}═══════════════════════════════════════════════════════════════${NC}"
+    echo -e "${GREEN}           ✓ Installation Complete!${NC}"
+    echo -e "${GREEN}═══════════════════════════════════════════════════════════════${NC}"
+    echo ""
+    echo -e "Installation summary: ${BLUE}cat /root/RASPPUNZEL-INFO.txt${NC}"
     echo -e "Installation log: ${BLUE}${INSTALL_LOG}${NC}"
     echo ""
-    echo -e "${YELLOW}Reboot recommended to apply all changes.${NC}"
-    echo ""
-    read -p "Reboot now? [y/N]: " reboot_now
     
-    if [[ "${reboot_now}" =~ ^[Yy]$ ]]; then
+    if [[ "${ENABLE_HEADLESS_MODE}" == "true" ]]; then
+        echo -e "${YELLOW}⚠️  HEADLESS MODE ENABLED${NC}"
+        echo -e "After reboot:"
+        echo -e "  - No GUI will be available"
+        echo -e "  - System will auto-login to console"
+        echo -e "  - All services will start automatically"
+        echo -e "  - Access via SSH or web dashboard"
+        echo ""
+    fi
+    
+    echo -e "${RED}REBOOT REQUIRED to apply all changes${NC}"
+    echo ""
+    
+    read -p "Reboot now? [Y/n]: " -r
+    if [[ ! $REPLY =~ ^[Nn]$ ]]; then
         log "INFO" "Rebooting system..."
+        echo -e "\n${YELLOW}Rebooting in 3 seconds...${NC}"
+        sleep 3
         reboot
     else
-        echo -e "\n${GREEN}Please reboot manually when ready: sudo reboot${NC}\n"
+        echo ""
+        echo -e "${GREEN}Installation complete.${NC}"
+        echo -e "${YELLOW}Please reboot manually when ready: ${BLUE}sudo reboot${NC}"
+        echo ""
     fi
 }
 
