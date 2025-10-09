@@ -1,0 +1,15 @@
+[Unit]
+Description=RaspPunzel Web Dashboard API
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+WorkingDirectory=/opt/rasppunzel/web/api
+Environment="PATH=/opt/rasppunzel/web/api/venv/bin"
+ExecStart=/opt/rasppunzel/web/api/venv/bin/python3 /opt/rasppunzel/web/api/app.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
