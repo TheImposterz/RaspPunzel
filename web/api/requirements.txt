@@ -14,8 +14,6 @@ flask-cors
 
 eventlet==0.33.3
 
-# Monitoring système
-psutil==5.9.5
 
 # Serveur de production (optionnel)
 gunicorn==21.2.0
