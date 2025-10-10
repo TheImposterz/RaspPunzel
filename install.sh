@@ -26,13 +26,13 @@ INSTALL_LOG="/var/log/rasppunzel-install.log"
 print_banner() {
     clear
     echo -e "${GREEN}"
-    echo "╔═══════════════════════════════════════════════════════════════╗"
-    echo "║                                                               ║"
-    echo "║            🚀 RaspPunzel Installation 🚀                      ║"
-    echo "║                                                               ║"
-    echo "║        Lightweight Network Pivot with Ligolo-ng              ║"
-    echo "║                                                               ║"
-    echo "╚═══════════════════════════════════════════════════════════════╝"
+    echo "╔═════════════════════════════════════════════════════════════════════════════════════════════════╗"
+    echo "║                                                                                                 ║"
+    echo "║                              🚀 RaspPunzel Installation 🚀                                      ║"
+    echo "║                                                                                                 ║"
+    echo "║        Lightweight Pwnbox installer RogueAP, tunneling with ligolo and WiFi Pentest             ║"
+    echo "║                                                                                                 ║"
+    echo "╚═════════════════════════════════════════════════════════════════════════════════════════════════╝"
     echo -e "${NC}"
 }
 
