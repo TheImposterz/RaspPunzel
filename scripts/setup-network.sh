@@ -30,7 +30,7 @@ echo -e "${YELLOW}[~] Configuring network (systemd-networkd approach)...${NC}"
 
 echo -e "${YELLOW}[~] Installing network packages...${NC}"
 apt-get update -qq
-apt-get install -y -qq hostapd dnsmasq wpa-supplicant systemd-resolved iproute2 > /dev/null
+apt-get install -y -qq hostapd dnsmasq wpasupplicant systemd-resolved iproute2 > /dev/null
 
 echo -e "${GREEN}[+] Packages installed${NC}"
 
