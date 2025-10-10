@@ -60,6 +60,9 @@ cat > /etc/network/interfaces <<'EOF'
 
 auto lo
 iface lo inet loopback
+
+auto eth0
+iface eth0 inet dhcp
 EOF
 
 echo -e "${GREEN}[+] /etc/network/interfaces configured${NC}"
@@ -127,7 +130,7 @@ IPv6AcceptRA=yes
 IPMasquerade=ipv4
 IPForward=ipv4
 DNS=1.1.1.1
-DNS=9.9.9.9
+DNS=8.8.8.8
 
 [DHCP]
 RouteMetric=100
@@ -443,8 +446,7 @@ log-dhcp
 listen-address=${ADMIN_AP_IP}
 bind-interfaces
 
-# Don't read system DNS
-no-resolv
+
 EOF
 
     # Configure hostapd
