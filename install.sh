@@ -456,7 +456,7 @@ main() {
         echo -e "  ${YELLOW}○${NC} Certbot SSL (skipped)"
     fi
     
-    if [[ "${ENABLE_PENTEST_TOOLS}" == "true" ]]; then    # <-- AJOUTER ICI
+    if [[ "${ENABLE_PENTEST_TOOLS}" == "true" ]]; then    
         echo -e "  ${GREEN}✓${NC} Pentest WiFi Tools (~500MB)"
     else
         echo -e "  ${YELLOW}○${NC} Pentest WiFi Tools (skipped)"
@@ -486,16 +486,14 @@ main() {
     echo ""
     
     install_ligolo
-    setup_network
     install_web_dashboard
-    install_certbot
     install_pentest_tools
+    install_certbot
+    setup_network
     configure_services
     create_management_scripts
-    
     # Headless conversion LAST - after everything is installed
     convert_to_headless
-    
     generate_summary
     
     # Final message
