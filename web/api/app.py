@@ -181,8 +181,20 @@ def change_password():
     """Change le mot de passe de l'utilisateur"""
     try:
         data = request.get_json()
+        if not data:
+            return jsonify({
+                'success': False,
+                'error': 'Aucune donnée reçue'
+            }), 400
+            
         current_password = data.get('current_password')
         new_password = data.get('new_password')
+        
+        # Debug logging
+        print(f"[DEBUG] Received password change request")
+        print(f"[DEBUG] Current password provided: {'Yes' if current_password else 'No'}")
+        print(f"[DEBUG] New password provided: {'Yes' if new_password else 'No'}")
+        print(f"[DEBUG] AUTH_CONFIG password_hash exists: {'Yes' if AUTH_CONFIG.get('password_hash') else 'No'}")
         
         if not current_password or not new_password:
             return jsonify({
@@ -190,12 +202,25 @@ def change_password():
                 'error': 'Tous les champs sont requis'
             }), 400
         
-        # Vérifier le mot de passe actuel
-        if not verify_password(current_password, AUTH_CONFIG['password_hash']):
+        # Vérifier le mot de passe actuel avec plus de debug
+        try:
+            current_hash = hashlib.sha256(current_password.encode()).hexdigest()
+            stored_hash = AUTH_CONFIG.get('password_hash', '')
+            
+            print(f"[DEBUG] Current password hash matches: {current_hash == stored_hash}")
+            
+            if not verify_password(current_password, stored_hash):
+                print(f"[DEBUG] Password verification failed")
+                return jsonify({
+                    'success': False,
+                    'error': 'Mot de passe actuel incorrect'
+                }), 401
+        except Exception as e:
+            print(f"[DEBUG] Error in password verification: {e}")
             return jsonify({
                 'success': False,
-                'error': 'Mot de passe actuel incorrect'
-            }), 401
+                'error': 'Erreur lors de la vérification du mot de passe'
+            }), 500
         
         # Valider le nouveau mot de passe
         if len(new_password) < 8:
@@ -223,35 +248,48 @@ def change_password():
             }), 400
         
         # Vérifier que le nouveau mot de passe est différent
-        if verify_password(new_password, AUTH_CONFIG['password_hash']):
+        if verify_password(new_password, AUTH_CONFIG.get('password_hash', '')):
             return jsonify({
                 'success': False,
                 'error': 'Le nouveau mot de passe doit être différent de l\'ancien'
             }), 400
         
         # Mettre à jour le mot de passe
-        AUTH_CONFIG['password_hash'] = hashlib.sha256(new_password.encode()).hexdigest()
-        AUTH_CONFIG['is_default_password'] = False
-        
-        # Sauvegarder
-        if save_auth_config():
-            return jsonify({
-                'success': True,
-                'message': 'Mot de passe changé avec succès'
-            })
-        else:
+        try:
+            AUTH_CONFIG['password_hash'] = hashlib.sha256(new_password.encode()).hexdigest()
+            AUTH_CONFIG['is_default_password'] = False
+            
+            print(f"[DEBUG] Password updated in memory")
+            
+            # Sauvegarder
+            if save_auth_config():
+                print(f"[DEBUG] Password saved to file successfully")
+                return jsonify({
+                    'success': True,
+                    'message': 'Mot de passe changé avec succès'
+                })
+            else:
+                print(f"[DEBUG] Failed to save password to file")
+                return jsonify({
+                    'success': False,
+                    'error': 'Erreur lors de la sauvegarde du mot de passe'
+                }), 500
+                
+        except Exception as e:
+            print(f"[DEBUG] Error updating password: {e}")
             return jsonify({
                 'success': False,
-                'error': 'Erreur lors de la sauvegarde du mot de passe'
+                'error': f'Erreur lors de la mise à jour: {str(e)}'
             }), 500
             
     except Exception as e:
         print(f"[!] Erreur change_password: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({
             'success': False,
-            'error': str(e)
+            'error': f'Erreur interne: {str(e)}'
         }), 500
-
 
 # =================================================================================================
 # Fonctions Ligolo-ng
