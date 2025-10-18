@@ -46,3 +46,12 @@ captures/
 # Wordlists locales
 wordlists/
 *.txt.gz
+
+
+ .vagrant/
+ Vagrantfile
+ ligolo-certs/
+ ligolo-ng.history
+ ligolo-ng.yaml
+ provision.sh
+ scripts/fix.sh
