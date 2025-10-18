@@ -240,9 +240,8 @@ Wireless security testing suite.
 
 **Advanced Frameworks:**
 - Wifipumpkin3 - Rogue AP framework
-- Wifiphisher - Evil twin attacks
 - Fluxion - Social engineering
-- EAPHammer - WPA2-Enterprise attacks
+- WPA2-Enterprise attacks
 - Airgeddon - All-in-one WiFi tool
 
 **Control via:**

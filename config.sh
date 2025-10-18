@@ -9,7 +9,7 @@
 # Ligolo-ng Configuration
 # =================================================================================================
 
-LIGOLO_VERSION="v0.8"
+LIGOLO_VERSION="v0.8.2"
 LIGOLO_PROXY_HOST="YOUR_VPS_IP"         # Change to your proxy server IP
 LIGOLO_PROXY_PORT="11601"
 LIGOLO_IGNORE_CERT="true"
