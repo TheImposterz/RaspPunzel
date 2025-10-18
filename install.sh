@@ -188,7 +188,7 @@ install_ligolo() {
     log "INFO" "Installing Ligolo-ng..."
     bash "${SCRIPTS_DIR}/install-ligolo.sh" || {
         log "ERROR" "Ligolo-ng installation failed"
-        exit 1
+       
     }
 }
 
@@ -196,7 +196,7 @@ setup_network() {
     log "INFO" "Configuring network..."
     bash "${SCRIPTS_DIR}/setup-network.sh" || {
         log "ERROR" "Network setup failed"
-        exit 1
+        
     }
 }
 
@@ -205,7 +205,7 @@ install_web_dashboard() {
         log "INFO" "Installing web dashboard..."
         bash "${SCRIPTS_DIR}/install-web-dashboard.sh" || {
             log "ERROR" "Web dashboard installation failed"
-            exit 1
+           
         }
     else
         log "INFO" "Skipping web dashboard (disabled)"
@@ -217,7 +217,7 @@ install_certbot() {
         log "INFO" "Installing Certbot..."
         bash "${SCRIPTS_DIR}/install-certbot.sh" || {
             log "ERROR" "Certbot installation failed"
-            exit 1
+            
         }
     else
         log "INFO" "Skipping Certbot (disabled)"
@@ -228,7 +228,7 @@ configure_services() {
     log "INFO" "Configuring services..."
     bash "${SCRIPTS_DIR}/service-manager.sh" setup || {
         log "ERROR" "Service configuration failed"
-        exit 1
+        
     }
 }
 
@@ -243,7 +243,7 @@ convert_to_headless() {
         
         bash "${SCRIPTS_DIR}/convert-to-headless.sh" || {
             log "ERROR" "Headless conversion failed"
-            exit 1
+            
         }
     else
         log "INFO" "Skipping headless conversion (disabled)"
