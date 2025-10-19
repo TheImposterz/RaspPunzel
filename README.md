@@ -150,6 +150,8 @@ cat /root/RASPPUNZEL-INFO.txt
 
 ### Mode 1: Network Pivot (Ligolo-ng)
 
+![ligolo agent](/img/ligolo.png)
+
 Establish encrypted tunnel for remote network access.
 
 **On Your Attack Machine (Proxy Server):**
@@ -193,10 +195,16 @@ sudo ip route add 192.168.1.0/24 dev ligolo
 # Verify route
 ip route show
 ```
+Hence this 
+
+![alt text](/img/itworks.png)
 
 ### Mode 2: WiFi Hotspot
 
+![AP](/img/ap.png)
+
 Hidden admin access point for on-site access.
+
 
 **Auto-configured at installation:**
 - SSID: From `ADMIN_AP_SSID` in config.sh (default: RASPPUNZEL_ADMIN)
@@ -230,7 +238,10 @@ http://13.37.0.1:8080 → WiFi AP tab
 
 ### Mode 3: WiFi Pentest
 
+
 Wireless security testing suite.
+
+![alt text](/img/wifipentest.png)
 
 **Pre-installed tools** (if `ENABLE_PENTEST_TOOLS="true"`):
 
@@ -697,4 +708,4 @@ sudo ./install.sh  # Re-run installation
 
 **For authorized security testing only** 🔒
 
-*RaspPunzel v2.1 - Portable Pentest Platform*
+*RaspPunzel v3 - Portable Pentest Platform*
