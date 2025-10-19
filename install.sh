@@ -358,7 +358,7 @@ install_pentest_tools() {
         log "INFO" "Installing pentest WiFi tools..."
         bash "${SCRIPTS_DIR}/install-pentest-tools.sh" || {
             log "ERROR" "Pentest tools installation failed"
-            exit 1
+        
         }
     else
         log "INFO" "Pentest tools disabled in config"
