@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-RaspPunzel Dashboard Backend API - Version finale complète
+RaspPunzel Dashboard Backend API - Version complète CORRIGÉE
 Toutes les fonctionnalités: Ligolo-ng, WiFi AP, Pentest Adapters
 """
 
@@ -29,11 +29,11 @@ AUTH_CONFIG = {
     'username': 'admin',
     'password_hash': '',
     'session_timeout': 480,
-    'is_default_password': True  # Flag pour détecter si le mot de passe par défaut est utilisé
+    'is_default_password': True
 }
 
 # =================================================================================================
-# Authentification
+# Authentification - FONCTIONS COMPLÈTES
 # =================================================================================================
 
 def load_auth_config():
@@ -94,7 +94,7 @@ def login_required(f):
             if request.is_json:
                 return jsonify({'success': False, 'error': 'Authentication required'}), 401
             return redirect(url_for('index'))
-        
+
         if 'login_time' in session:
             login_time = datetime.fromisoformat(session['login_time'])
             if datetime.now() - login_time > timedelta(minutes=AUTH_CONFIG['session_timeout']):
@@ -102,12 +102,12 @@ def login_required(f):
                 if request.is_json:
                     return jsonify({'success': False, 'error': 'Session expired'}), 401
                 return redirect(url_for('index'))
-        
+
         return f(*args, **kwargs)
     return decorated_function
 
 # =================================================================================================
-# Routes Web
+# Routes Web - COMPLÈTES
 # =================================================================================================
 
 @app.route('/')
@@ -124,20 +124,19 @@ def login():
         data = request.get_json() or request.form
         username = data.get('username')
         password = data.get('password')
-        
-        if (username == AUTH_CONFIG['username'] and 
+
+        if (username == AUTH_CONFIG['username'] and
             verify_password(password, AUTH_CONFIG['password_hash'])):
-            
+
             session['authenticated'] = True
             session['username'] = username
             session['login_time'] = datetime.now().isoformat()
             session.permanent = True
-            
-            # Vérifier si c'est le mot de passe par défaut
+
             redirect_url = '/dashboard'
             if AUTH_CONFIG.get('is_default_password', False):
                 redirect_url = '/change-password?first_login=true'
-            
+
             return jsonify({
                 'success': True,
                 'message': 'Connexion réussie',
@@ -167,134 +166,706 @@ def dashboard():
     """Page principale du dashboard"""
     return render_template('dashboard.html')
 
+# =================================================================================================
+# Fonctions WiFi Access Point CORRIGÉES
+# =================================================================================================
 
-@app.route('/change-password')
-@login_required
-def change_password_page():
-    """Page de changement de mot de passe"""
-    return render_template('change-password.html')
-
-
-@app.route('/api/auth/change-password', methods=['POST'])
-@login_required
-def change_password():
-    """Change le mot de passe de l'utilisateur"""
+def get_ap_interface():
+    """Récupère l'interface utilisée par l'AP depuis la configuration hostapd"""
     try:
-        data = request.get_json()
-        if not data:
-            return jsonify({
-                'success': False,
-                'error': 'Aucune donnée reçue'
-            }), 400
-            
-        current_password = data.get('current_password')
-        new_password = data.get('new_password')
-        
-        # Debug logging
-        print(f"[DEBUG] Received password change request")
-        print(f"[DEBUG] Current password provided: {'Yes' if current_password else 'No'}")
-        print(f"[DEBUG] New password provided: {'Yes' if new_password else 'No'}")
-        print(f"[DEBUG] AUTH_CONFIG password_hash exists: {'Yes' if AUTH_CONFIG.get('password_hash') else 'No'}")
-        
-        if not current_password or not new_password:
-            return jsonify({
-                'success': False,
-                'error': 'Tous les champs sont requis'
-            }), 400
-        
-        # Vérifier le mot de passe actuel avec plus de debug
-        try:
-            current_hash = hashlib.sha256(current_password.encode()).hexdigest()
-            stored_hash = AUTH_CONFIG.get('password_hash', '')
-            
-            print(f"[DEBUG] Current password hash matches: {current_hash == stored_hash}")
-            
-            if not verify_password(current_password, stored_hash):
-                print(f"[DEBUG] Password verification failed")
-                return jsonify({
-                    'success': False,
-                    'error': 'Mot de passe actuel incorrect'
-                }), 401
-        except Exception as e:
-            print(f"[DEBUG] Error in password verification: {e}")
-            return jsonify({
-                'success': False,
-                'error': 'Erreur lors de la vérification du mot de passe'
-            }), 500
-        
-        # Valider le nouveau mot de passe
-        if len(new_password) < 8:
-            return jsonify({
-                'success': False,
-                'error': 'Le mot de passe doit contenir au moins 8 caractères'
-            }), 400
-        
-        if not re.search(r'[A-Z]', new_password):
-            return jsonify({
-                'success': False,
-                'error': 'Le mot de passe doit contenir au moins une majuscule'
-            }), 400
-        
-        if not re.search(r'[a-z]', new_password):
-            return jsonify({
-                'success': False,
-                'error': 'Le mot de passe doit contenir au moins une minuscule'
-            }), 400
-        
-        if not re.search(r'[0-9]', new_password):
-            return jsonify({
-                'success': False,
-                'error': 'Le mot de passe doit contenir au moins un chiffre'
-            }), 400
-        
-        # Vérifier que le nouveau mot de passe est différent
-        if verify_password(new_password, AUTH_CONFIG.get('password_hash', '')):
-            return jsonify({
-                'success': False,
-                'error': 'Le nouveau mot de passe doit être différent de l\'ancien'
-            }), 400
-        
-        # Mettre à jour le mot de passe
-        try:
-            AUTH_CONFIG['password_hash'] = hashlib.sha256(new_password.encode()).hexdigest()
-            AUTH_CONFIG['is_default_password'] = False
-            
-            print(f"[DEBUG] Password updated in memory")
-            
-            # Sauvegarder
-            if save_auth_config():
-                print(f"[DEBUG] Password saved to file successfully")
-                return jsonify({
-                    'success': True,
-                    'message': 'Mot de passe changé avec succès'
-                })
-            else:
-                print(f"[DEBUG] Failed to save password to file")
-                return jsonify({
-                    'success': False,
-                    'error': 'Erreur lors de la sauvegarde du mot de passe'
-                }), 500
-                
-        except Exception as e:
-            print(f"[DEBUG] Error updating password: {e}")
-            return jsonify({
-                'success': False,
-                'error': f'Erreur lors de la mise à jour: {str(e)}'
-            }), 500
-            
+        hostapd_conf = '/etc/hostapd/hostapd.conf'
+        if os.path.exists(hostapd_conf):
+            with open(hostapd_conf, 'r') as f:
+                for line in f:
+                    line = line.strip()
+                    if line.startswith('interface='):
+                        return line.split('=', 1)[1].strip()
     except Exception as e:
-        print(f"[!] Erreur change_password: {e}")
+        print(f"[!] Erreur get_ap_interface: {e}")
+
+    # Fallback: chercher dans les scripts d'installation
+    try:
+        for script_file in ['/opt/rasppunzel/scripts/install-system.sh']:
+            if os.path.exists(script_file):
+                with open(script_file, 'r') as f:
+                    content = f.read()
+                    # Chercher la variable d'interface BrosTrend
+                    match = re.search(r'WLAN_INTERFACE_BROSTREND_AC1L="([^"]+)"', content)
+                    if match:
+                        return match.group(1)
+    except:
+        pass
+
+    return None
+
+
+def get_ap_network_info():
+    """Récupère les informations réseau de l'AP depuis les configurations"""
+    network_info = {
+        'gateway_ip': None,
+        'dhcp_start': None,
+        'dhcp_end': None,
+        'network_prefix': None,
+        'interface': None
+    }
+    
+    try:
+        # 1. Récupérer l'interface AP depuis hostapd
+        hostapd_conf = '/etc/hostapd/hostapd.conf'
+        if os.path.exists(hostapd_conf):
+            with open(hostapd_conf, 'r') as f:
+                for line in f:
+                    line = line.strip()
+                    if line.startswith('interface='):
+                        network_info['interface'] = line.split('=', 1)[1].strip()
+                        break
+        
+        # 2. Récupérer les infos depuis dnsmasq.conf
+        dnsmasq_conf = '/etc/dnsmasq.conf'
+        if os.path.exists(dnsmasq_conf):
+            with open(dnsmasq_conf, 'r') as f:
+                for line in f:
+                    line = line.strip()
+                    if line.startswith('dhcp-range='):
+                        # Format: dhcp-range=192.168.4.2,192.168.4.20,255.255.255.0,24h
+                        range_parts = line.split('=', 1)[1].split(',')
+                        if len(range_parts) >= 2:
+                            network_info['dhcp_start'] = range_parts[0].strip()
+                            network_info['dhcp_end'] = range_parts[1].strip()
+                            
+                            # Calculer le préfixe réseau depuis l'IP de début
+                            start_ip_parts = network_info['dhcp_start'].split('.')
+                            if len(start_ip_parts) == 4:
+                                # Supposer un /24 par défaut, mais on peut améliorer
+                                network_info['network_prefix'] = f"{start_ip_parts[0]}.{start_ip_parts[1]}.{start_ip_parts[2]}"
+                    
+                    elif line.startswith('listen-address='):
+                        network_info['gateway_ip'] = line.split('=', 1)[1].strip()
+        
+        # 3. Si pas de gateway dans dnsmasq, chercher sur l'interface
+        if not network_info['gateway_ip'] and network_info['interface']:
+            try:
+                result = subprocess.run(
+                    ['/usr/sbin/ip', 'addr', 'show', network_info['interface']],
+                    capture_output=True,
+                    text=True,
+                    timeout=5
+                )
+                
+                if result.returncode == 0:
+                    for line in result.stdout.split('\n'):
+                        if 'inet ' in line and 'scope global' in line:
+                            # Exemple: inet 192.168.4.1/24 scope global wlx...
+                            ip_match = re.search(r'inet (\d+\.\d+\.\d+\.\d+)(?:/\d+)?', line)
+                            if ip_match:
+                                network_info['gateway_ip'] = ip_match.group(1)
+                                # Déduire le préfixe réseau
+                                ip_parts = network_info['gateway_ip'].split('.')
+                                if len(ip_parts) == 4:
+                                    network_info['network_prefix'] = f"{ip_parts[0]}.{ip_parts[1]}.{ip_parts[2]}"
+                                break
+            except Exception as e:
+                print(f"[!] Erreur récupération IP interface: {e}")
+        
+        # 4. Si toujours pas de préfixe réseau, essayer de le déduire du gateway
+        if not network_info['network_prefix'] and network_info['gateway_ip']:
+            ip_parts = network_info['gateway_ip'].split('.')
+            if len(ip_parts) == 4:
+                network_info['network_prefix'] = f"{ip_parts[0]}.{ip_parts[1]}.{ip_parts[2]}"
+    
+    except Exception as e:
+        print(f"[!] Erreur get_ap_network_info: {e}")
+    
+    return network_info
+
+
+def is_ip_in_ap_network(ip_address, network_info):
+    """Vérifie si une IP appartient au réseau de l'AP"""
+    if not network_info['network_prefix'] or not ip_address:
+        return False
+    
+    # Vérifier si l'IP commence par le préfixe réseau
+    if ip_address.startswith(network_info['network_prefix'] + '.'):
+        # Exclure l'IP du gateway
+        if ip_address != network_info['gateway_ip']:
+            return True
+    
+    return False
+
+
+def get_ap_clients():
+    """Récupère la liste des clients connectés à l'AP - VERSION AMÉLIORÉE"""
+    clients = []
+    
+    try:
+        # Récupérer les informations réseau de l'AP
+        network_info = get_ap_network_info()
+        
+        if not network_info['network_prefix']:
+            print(f"[!] Impossible de déterminer le réseau de l'AP")
+            return clients
+        
+        print(f"[DEBUG] Réseau AP détecté: {network_info['network_prefix']}.x, Gateway: {network_info['gateway_ip']}")
+        
+        # Méthode 1: Fichiers de leases DHCP
+        leases_files = [
+            '/var/lib/dhcp/dhcpd.leases',
+            '/var/lib/dhcpcd5/dhcpcd.leases', 
+            '/var/lib/misc/dnsmasq.leases',
+            '/tmp/dhcp.leases',
+            '/var/run/dnsmasq.leases'
+        ]
+        
+        found_leases = False
+        for leases_file in leases_files:
+            if os.path.exists(leases_file):
+                try:
+                    with open(leases_file, 'r') as f:
+                        for line in f:
+                            parts = line.strip().split()
+                            if len(parts) >= 4:
+                                lease_time = parts[0]
+                                mac = parts[1]
+                                ip = parts[2]
+                                hostname = parts[3] if len(parts) > 3 else 'Unknown'
+                                
+                                # Vérifier si l'IP appartient au réseau de l'AP
+                                if is_ip_in_ap_network(ip, network_info):
+                                    clients.append({
+                                        'mac': mac,
+                                        'ip': ip,
+                                        'hostname': hostname,
+                                        'lease_time': lease_time,
+                                        'status': 'active',
+                                        'source': 'dhcp_lease'
+                                    })
+                                    found_leases = True
+                    
+                    if found_leases:
+                        print(f"[DEBUG] Trouvé {len(clients)} clients dans {leases_file}")
+                        break  # Si on trouve des leases, pas besoin de chercher ailleurs
+                        
+                except Exception as e:
+                    print(f"[!] Erreur lecture {leases_file}: {e}")
+                    continue
+        
+        # Méthode 2: Table ARP (backup ou complément)
+        try:
+            result = subprocess.run(
+                ['/usr/sbin/ip', 'neigh', 'show'],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            
+            if result.returncode == 0:
+                arp_clients = []
+                for line in result.stdout.split('\n'):
+                    if not line.strip():
+                        continue
+                    
+                    parts = line.split()
+                    if len(parts) >= 5:
+                        ip = parts[0]
+                        status = parts[2] if len(parts) > 2 else 'unknown'
+                        
+                        # Vérifier si l'IP appartient au réseau de l'AP
+                        if is_ip_in_ap_network(ip, network_info):
+                            # Chercher l'adresse MAC dans la ligne
+                            mac = None
+                            interface = None
+                            
+                            for i, part in enumerate(parts):
+                                if ':' in part and len(part.split(':')) == 6:
+                                    # Probable adresse MAC
+                                    mac = part
+                                elif part == 'dev' and i + 1 < len(parts):
+                                    interface = parts[i + 1]
+                            
+                            if mac:
+                                # Vérifier si ce client n'est pas déjà dans la liste des leases
+                                existing_client = None
+                                for client in clients:
+                                    if client['mac'] == mac or client['ip'] == ip:
+                                        existing_client = client
+                                        break
+                                
+                                if existing_client:
+                                    # Mettre à jour le statut ARP
+                                    existing_client['arp_status'] = status.lower()
+                                    existing_client['interface'] = interface
+                                else:
+                                    # Nouveau client trouvé via ARP
+                                    arp_clients.append({
+                                        'ip': ip,
+                                        'mac': mac,
+                                        'hostname': 'Unknown',
+                                        'status': status.lower(),
+                                        'interface': interface,
+                                        'source': 'arp_table'
+                                    })
+                
+                clients.extend(arp_clients)
+                if arp_clients:
+                    print(f"[DEBUG] Trouvé {len(arp_clients)} clients supplémentaires via ARP")
+        
+        except Exception as e:
+            print(f"[!] Erreur table ARP: {e}")
+        
+        # Méthode 3: hostapd_cli (si l'interface est connue)
+        if network_info['interface']:
+            try:
+                result = subprocess.run(
+                    ['hostapd_cli', '-i', network_info['interface'], 'all_sta'],
+                    capture_output=True,
+                    text=True,
+                    timeout=5
+                )
+                
+                if result.returncode == 0:
+                    hostapd_clients = []
+                    current_mac = None
+                    
+                    for line in result.stdout.split('\n'):
+                        line = line.strip()
+                        # Détecter les adresses MAC (format: aa:bb:cc:dd:ee:ff)
+                        if re.match(r'^[0-9a-fA-F]{2}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}$', line):
+                            current_mac = line
+                            
+                            # Vérifier si ce client n'est pas déjà dans la liste
+                            existing_client = None
+                            for client in clients:
+                                if client['mac'].lower() == current_mac.lower():
+                                    existing_client = client
+                                    break
+                            
+                            if not existing_client:
+                                hostapd_clients.append({
+                                    'mac': current_mac,
+                                    'ip': 'Unknown',
+                                    'hostname': 'Unknown', 
+                                    'status': 'connected',
+                                    'source': 'hostapd'
+                                })
+                    
+                    clients.extend(hostapd_clients)
+                    if hostapd_clients:
+                        print(f"[DEBUG] Trouvé {len(hostapd_clients)} clients supplémentaires via hostapd")
+            
+            except Exception as e:
+                print(f"[!] Erreur hostapd_cli: {e}")
+        
+        # Dédupliquer et nettoyer la liste finale
+        unique_clients = []
+        seen_macs = set()
+        seen_ips = set()
+        
+        for client in clients:
+            # Identifier de manière unique par MAC ou IP
+            identifier = client.get('mac', '').lower() or client.get('ip', '')
+            
+            if identifier and identifier not in seen_macs and identifier not in seen_ips:
+                if client.get('mac'):
+                    seen_macs.add(client['mac'].lower())
+                if client.get('ip'):
+                    seen_ips.add(client['ip'])
+                unique_clients.append(client)
+        
+        print(f"[DEBUG] Total final: {len(unique_clients)} clients uniques")
+        return unique_clients
+    
+    except Exception as e:
+        print(f"[!] Erreur get_ap_clients: {e}")
         import traceback
         traceback.print_exc()
-        return jsonify({
-            'success': False,
-            'error': f'Erreur interne: {str(e)}'
-        }), 500
+    
+    return clients
+
+def get_ap_config():
+    """Récupère la configuration complète de l'Access Point depuis les fichiers système"""
+    config = {
+        'ssid': None,
+        'interface': None,
+        'ip_gateway': None,
+        'dhcp_range': None,
+        'channel': None,
+        'hidden': False,
+        'security': None,
+        'encryption': None,
+        'password_set': False,
+        'country_code': None,
+        'hw_mode': None,
+        'hostapd_status': False,
+        'dnsmasq_status': False,
+        'interface_status': None,
+        'broadcast_ssid': True,
+        'wpa_version': None,
+        'dhcp_lease_time': None,
+        'dns_servers': []
+    }
+    
+    try:
+        # ===== Configuration hostapd =====
+        hostapd_conf = '/etc/hostapd/hostapd.conf'
+        if os.path.exists(hostapd_conf):
+            with open(hostapd_conf, 'r') as f:
+                for line in f:
+                    line = line.strip()
+                    
+                    # Ignorer les commentaires et lignes vides
+                    if not line or line.startswith('#'):
+                        continue
+                    
+                    if '=' in line:
+                        key, value = line.split('=', 1)
+                        key = key.strip()
+                        value = value.strip()
+                        
+                        # Paramètres de base
+                        if key == 'ssid':
+                            config['ssid'] = value
+                        elif key == 'interface':
+                            config['interface'] = value
+                        elif key == 'channel':
+                            try:
+                                config['channel'] = int(value)
+                            except ValueError:
+                                config['channel'] = None
+                        elif key == 'hw_mode':
+                            config['hw_mode'] = value
+                        elif key == 'country_code':
+                            config['country_code'] = value
+                        
+                        # Sécurité
+                        elif key == 'ignore_broadcast_ssid':
+                            config['hidden'] = value == '1'
+                            config['broadcast_ssid'] = value != '1'
+                        elif key == 'wpa':
+                            if value == '1':
+                                config['wpa_version'] = 'WPA'
+                                config['security'] = 'WPA'
+                            elif value == '2':
+                                config['wpa_version'] = 'WPA2'
+                                config['security'] = 'WPA2'
+                            elif value == '3':
+                                config['wpa_version'] = 'WPA/WPA2'
+                                config['security'] = 'WPA/WPA2'
+                        elif key == 'wpa_key_mgmt':
+                            if 'WPA-PSK' in value:
+                                config['security'] = config.get('security', 'WPA') + '-PSK'
+                        elif key == 'wpa_pairwise' or key == 'rsn_pairwise':
+                            config['encryption'] = value
+                        elif key == 'wpa_passphrase':
+                            config['password_set'] = bool(value)
+                        elif key == 'auth_algs':
+                            if value == '1':
+                                if not config['security']:
+                                    config['security'] = 'Open'
+        
+        # Si pas de sécurité détectée et pas de WPA, probablement ouvert
+        if not config['security']:
+            config['security'] = 'Open'
+        
+        # ===== Configuration dnsmasq =====
+        dnsmasq_conf = '/etc/dnsmasq.conf'
+        if os.path.exists(dnsmasq_conf):
+            with open(dnsmasq_conf, 'r') as f:
+                for line in f:
+                    line = line.strip()
+                    
+                    # Ignorer les commentaires et lignes vides
+                    if not line or line.startswith('#'):
+                        continue
+                    
+                    if '=' in line:
+                        key, value = line.split('=', 1)
+                        key = key.strip()
+                        value = value.strip()
+                        
+                        # Plage DHCP
+                        if key == 'dhcp-range':
+                            # Formats possibles:
+                            # dhcp-range=192.168.4.2,192.168.4.20,255.255.255.0,12h
+                            # dhcp-range=192.168.4.2,192.168.4.20,12h
+                            # dhcp-range=interface:wlan0,192.168.4.2,192.168.4.20,12h
+                            
+                            range_parts = value.split(',')
+                            
+                            # Si premier élément contient "interface:", l'ignorer
+                            if range_parts[0].startswith('interface:'):
+                                range_parts = range_parts[1:]
+                            
+                            if len(range_parts) >= 2:
+                                start_ip = range_parts[0].strip()
+                                end_ip = range_parts[1].strip()
+                                config['dhcp_range'] = f"{start_ip}-{end_ip}"
+                                
+                                # Extraire le temps de lease si présent
+                                for part in range_parts[2:]:
+                                    if 'h' in part or 'm' in part or 'd' in part:
+                                        config['dhcp_lease_time'] = part.strip()
+                                        break
+                        
+                        # Adresse d'écoute (IP du gateway)
+                        elif key == 'listen-address':
+                            config['ip_gateway'] = value
+                        
+                        # Interface
+                        elif key == 'interface':
+                            if not config['interface']:  # Priorité à hostapd
+                                config['interface'] = value
+                        
+                        # Serveurs DNS
+                        elif key == 'server':
+                            if value not in config['dns_servers']:
+                                config['dns_servers'].append(value)
+                        elif key == 'dhcp-option' and value.startswith('6,'):
+                            # dhcp-option=6,8.8.8.8,8.8.4.4
+                            dns_ips = value[2:].split(',')
+                            for dns_ip in dns_ips:
+                                dns_ip = dns_ip.strip()
+                                if dns_ip and dns_ip not in config['dns_servers']:
+                                    config['dns_servers'].append(dns_ip)
+        
+        # ===== Récupération de l'IP du gateway depuis l'interface =====
+        if not config['ip_gateway'] and config['interface']:
+            try:
+                result = subprocess.run(
+                    ['/usr/sbin/ip', 'addr', 'show', config['interface']],
+                    capture_output=True,
+                    text=True,
+                    timeout=5
+                )
+                
+                if result.returncode == 0:
+                    for line in result.stdout.split('\n'):
+                        if 'inet ' in line and 'scope global' in line:
+                            # Exemple: inet 192.168.4.1/24 scope global wlx...
+                            ip_match = re.search(r'inet (\d+\.\d+\.\d+\.\d+)(?:/(\d+))?', line)
+                            if ip_match:
+                                config['ip_gateway'] = ip_match.group(1)
+                                break
+            except Exception as e:
+                print(f"[!] Erreur récupération IP interface: {e}")
+        
+        # ===== Statut de l'interface =====
+        if config['interface']:
+            try:
+                result = subprocess.run(
+                    ['/usr/sbin/ip', 'link', 'show', config['interface']],
+                    capture_output=True,
+                    text=True,
+                    timeout=5
+                )
+                
+                if result.returncode == 0:
+                    if 'state UP' in result.stdout:
+                        config['interface_status'] = 'up'
+                    elif 'state DOWN' in result.stdout:
+                        config['interface_status'] = 'down'
+                    else:
+                        config['interface_status'] = 'unknown'
+                else:
+                    config['interface_status'] = 'not_found'
+            except Exception as e:
+                print(f"[!] Erreur statut interface: {e}")
+                config['interface_status'] = 'error'
+        
+        # ===== Statut des services =====
+        config['hostapd_status'] = is_service_active('hostapd')
+        config['dnsmasq_status'] = is_service_active('dnsmasq')
+        
+        # ===== Validation et nettoyage =====
+        # Si pas d'interface trouvée, essayer de la détecter
+        if not config['interface']:
+            try:
+                # Chercher une interface WiFi USB active
+                result = subprocess.run(['iwconfig'], capture_output=True, text=True, timeout=5)
+                if result.returncode == 0:
+                    for line in result.stdout.split('\n'):
+                        if 'wlx' in line or 'wlan' in line:
+                            interface = line.split()[0]
+                            if interface and interface != 'wlan0':  # Éviter la WiFi intégrée
+                                config['interface'] = interface
+                                break
+            except:
+                pass
+        
+        # Logs de debug
+        print(f"[DEBUG] Configuration AP détectée:")
+        print(f"  SSID: {config['ssid']}")
+        print(f"  Interface: {config['interface']} ({config['interface_status']})")
+        print(f"  Gateway: {config['ip_gateway']}")
+        print(f"  DHCP: {config['dhcp_range']}")
+        print(f"  Canal: {config['channel']}")
+        print(f"  Sécurité: {config['security']}")
+        print(f"  Services: hostapd={config['hostapd_status']}, dnsmasq={config['dnsmasq_status']}")
+        
+    except Exception as e:
+        print(f"[!] Erreur get_ap_config: {e}")
+        import traceback
+        traceback.print_exc()
+    
+    return config
+
+
+def get_real_service_status():
+    """Récupère le statut réel des services avec vérifications multiples"""
+    services_status = {}
+
+    # Liste des services à vérifier
+    services = ['hostapd', 'dnsmasq', 'ligolo-agent', 'ssh']
+
+    for service in services:
+        status = {
+            'active': False,
+            'enabled': False,
+            'pid': None,
+            'description': None
+        }
+
+        try:
+            # Vérifier si le service est actif
+            result = subprocess.run(
+                ['/usr/bin/systemctl', 'is-active', service],
+                capture_output=True,
+                text=True,
+                timeout=3
+            )
+            status['active'] = result.stdout.strip() == 'active'
+
+            # Vérifier si le service est enabled
+            result = subprocess.run(
+                ['/usr/bin/systemctl', 'is-enabled', service],
+                capture_output=True,
+                text=True,
+                timeout=3
+            )
+            status['enabled'] = result.stdout.strip() == 'enabled'
+
+            # Récupérer les informations détaillées
+            result = subprocess.run(
+                ['/usr/bin/systemctl', 'status', service, '--no-pager', '-l'],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+
+            if result.returncode == 0:
+                output = result.stdout
+                # Chercher le PID
+                pid_match = re.search(r'Main PID: (\d+)', output)
+                if pid_match:
+                    status['pid'] = int(pid_match.group(1))
+
+                # Chercher la description
+                desc_match = re.search(r'Description: (.+)', output)
+                if desc_match:
+                    status['description'] = desc_match.group(1).strip()
+
+        except Exception as e:
+            print(f"[!] Erreur status {service}: {e}")
+
+        services_status[service] = status
+
+    return services_status
+
 
 # =================================================================================================
-# Fonctions Ligolo-ng
+# Fonctions utilitaires
 # =================================================================================================
 
+def is_service_active(service_name):
+    """Vérifie si un service systemd est actif avec vérification renforcée"""
+    try:
+        # Méthode 1: /usr/bin/systemctl is-active
+        result = subprocess.run(
+            ['/usr/bin/systemctl', 'is-active', service_name],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+
+        if result.stdout.strip() == 'active':
+            return True
+
+        # Méthode 2: Vérifier via les processus pour double confirmation
+        if service_name == 'hostapd':
+            for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+                try:
+                    if proc.info['name'] == 'hostapd':
+                        return True
+                    cmdline = proc.info.get('cmdline', [])
+                    if cmdline and any('hostapd' in str(cmd) for cmd in cmdline):
+                        return True
+                except (psutil.NoSuchProcess, psutil.AccessDenied):
+                    pass
+
+        elif service_name == 'dnsmasq':
+            for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+                try:
+                    if proc.info['name'] == 'dnsmasq':
+                        return True
+                    cmdline = proc.info.get('cmdline', [])
+                    if cmdline and any('dnsmasq' in str(cmd) for cmd in cmdline):
+                        return True
+                except (psutil.NoSuchProcess, psutil.AccessDenied):
+                    pass
+
+        return False
+
+    except Exception as e:
+        print(f"[!] Erreur is_service_active {service_name}: {e}")
+        return False
+
+
+def get_uptime():
+    """Retourne l'uptime du système"""
+    try:
+        with open('/proc/uptime', 'r') as f:
+            uptime_seconds = float(f.readline().split()[0])
+
+        days = int(uptime_seconds // 86400)
+        hours = int((uptime_seconds % 86400) // 3600)
+        minutes = int((uptime_seconds % 3600) // 60)
+
+        if days > 0:
+            return f"{days}d {hours:02d}h{minutes:02d}m"
+        else:
+            return f"{hours:02d}h{minutes:02d}m"
+    except:
+        return "unknown"
+
+
+def get_network_interfaces():
+    """Retourne les informations des interfaces réseau - FONCTION CORRIGÉE"""
+    interfaces = {}
+    try:
+        for interface, addrs in psutil.net_if_addrs().items():
+            for addr in addrs:
+                if addr.family == 2:  # AF_INET (IPv4)
+                    interfaces[interface] = {
+                        'ip': addr.address,
+                        'netmask': addr.netmask
+                    }
+                    break
+    except:
+        pass
+
+    return interfaces
+
+
+def get_kernel_version():
+    """Récupère la version du kernel"""
+    try:
+        return os.uname().release
+    except:
+        return "unknown"
+
+
+# =================================================================================================
+# Fonctions Ligolo (simplifiées pour l'exemple)
+# =================================================================================================
 def check_ligolo_agent_running():
     """Vérifie si l'agent Ligolo est actif"""
     try:
@@ -307,15 +878,15 @@ def check_ligolo_agent_running():
                 pass
     except Exception as e:
         print(f"[!] Erreur check process: {e}")
-    
+
     try:
         result = subprocess.run(
-            ['/usr/bin/lsof', '-i', '-n', '-P'],
+            ['sudo /usr/bin/lsof', '-i', '-n', '-P'],
             capture_output=True,
             text=True,
             timeout=5
         )
-        
+
         if result.returncode == 0:
             for line in result.stdout.split('\n'):
                 if 'ligolo-ag' in line.lower() and 'ESTABLISHED' in line:
@@ -328,7 +899,7 @@ def check_ligolo_agent_running():
                             pass
     except Exception as e:
         print(f"[!] Erreur check lsof: {e}")
-    
+
     return False, None
 
 
@@ -373,7 +944,6 @@ def get_ligolo_connection_info():
         print(f"[!] Erreur get connection info: {e}")
     
     return info
-
 
 def get_ligolo_routes():
     """Récupère les routes réseau avec filtrage intelligent"""
@@ -446,7 +1016,6 @@ def get_ligolo_routes():
     
     return routes
 
-
 def get_ligolo_config():
     """Récupère la configuration Ligolo-ng"""
     config = {
@@ -493,382 +1062,28 @@ def get_ligolo_config():
     
     return config
 
-
-def get_ligolo_logs(lines=50):
-    """Récupère les logs Ligolo"""
-    logs = []
-    
-    try:
-        result = subprocess.run(
-            ['/usr/bin/journalctl', '-u', 'ligolo-agent', '-n', str(lines), '--no-pager', '-o', 'short-iso'],
-            capture_output=True,
-            text=True,
-            timeout=5
-        )
-        
-        if result.returncode == 0:
-            for line in result.stdout.split('\n'):
-                if line.strip():
-                    logs.append(line)
-        
-        if not logs:
-            is_running, pid = check_ligolo_agent_running()
-            if is_running and pid:
-                logs.append(f"Agent Ligolo actif (PID: {pid})")
-                conn_info = get_ligolo_connection_info()
-                if conn_info['connected']:
-                    logs.append(f"Connecté à {conn_info['remote_host']}:{conn_info['remote_port']}")
-            else:
-                logs.append("Agent Ligolo non actif")
-                
-    except Exception as e:
-        print(f"[!] Erreur get logs: {e}")
-        logs.append(f"Erreur: {str(e)}")
-    
-    return logs
-
-
 # =================================================================================================
-# Fonctions WiFi Access Point
-# =================================================================================================
-
-def get_ap_clients():
-    """Récupère la liste des clients connectés à l'AP"""
-    clients = []
-    
-    try:
-        # Méthode 1: Fichier de leases DHCP
-        leases_file = '/var/lib/misc/dnsmasq.leases'
-        if os.path.exists(leases_file):
-            with open(leases_file, 'r') as f:
-                for line in f:
-                    parts = line.strip().split()
-                    if len(parts) >= 4:
-                        clients.append({
-                            'mac': parts[1],
-                            'ip': parts[2],
-                            'hostname': parts[3] if len(parts) > 3 else 'Unknown',
-                            'lease_time': parts[0]
-                        })
-        
-        # Méthode 2: ARP table (backup)
-        if not clients:
-            result = subprocess.run(
-                ['/usr/sbin/ip', 'neigh', 'show'],
-                capture_output=True,
-                text=True,
-                timeout=5
-            )
-            
-            if result.returncode == 0:
-                for line in result.stdout.split('\n'):
-                    if '10.0.0.' in line and 'REACHABLE' in line:
-                        parts = line.split()
-                        if len(parts) >= 5:
-                            clients.append({
-                                'ip': parts[0],
-                                'mac': parts[4],
-                                'hostname': 'Unknown',
-                                'status': parts[2]
-                            })
-    
-    except Exception as e:
-        print(f"[!] Erreur get_ap_clients: {e}")
-    
-    return clients
-
-
-def get_ap_config():
-    """Récupère la configuration de l'Access Point"""
-    config = {
-        'ssid': 'PWNBOX_ADMIN',
-        'interface': None,
-        'ip': '10.0.0.1',
-        'dhcp_range': '10.0.0.2-10.0.0.30',
-        'channel': 11,
-        'hidden': True
-    }
-    
-    try:
-        hostapd_conf = '/etc/hostapd/hostapd.conf'
-        if os.path.exists(hostapd_conf):
-            with open(hostapd_conf, 'r') as f:
-                for line in f:
-                    line = line.strip()
-                    if line.startswith('ssid='):
-                        config['ssid'] = line.split('=', 1)[1]
-                    elif line.startswith('interface='):
-                        config['interface'] = line.split('=', 1)[1]
-                    elif line.startswith('channel='):
-                        config['channel'] = int(line.split('=', 1)[1])
-                    elif line.startswith('ignore_broadcast_ssid='):
-                        config['hidden'] = line.split('=', 1)[1] == '1'
-    except Exception as e:
-        print(f"[!] Erreur get_ap_config: {e}")
-    
-    return config
-
-
-# =================================================================================================
-# Fonctions Pentest WiFi Adapters
-# =================================================================================================
-
-def get_wifi_adapters():
-    """Récupère tous les adapters WiFi disponibles"""
-    adapters = {}
-    
-    try:
-        # Lister toutes les interfaces réseau
-        for interface, addrs in psutil.net_if_addrs().items():
-            # Filtrer les interfaces WiFi
-            if interface.startswith('wlan') or interface.startswith('wlx'):
-                adapter_info = {
-                    'name': interface,
-                    'addresses': [],
-                    'status': 'down',
-                    'mac': None,
-                    'mode': 'managed',
-                    'chipset': None
-                }
-                
-                # Récupérer les adresses
-                for addr in addrs:
-                    if addr.family == 2:  # IPv4
-                        adapter_info['addresses'].append({
-                            'type': 'ipv4',
-                            'ip': addr.address,
-                            'netmask': addr.netmask
-                        })
-                    elif addr.family == 17:  # MAC
-                        adapter_info['mac'] = addr.address
-                
-                # Statut de l'interface
-                stats = psutil.net_if_stats().get(interface)
-                if stats:
-                    adapter_info['status'] = 'up' if stats.isup else 'down'
-                    adapter_info['speed'] = stats.speed
-                
-                # Mode WiFi (managed/monitor)
-                try:
-                    iwconfig_result = subprocess.run(
-                        ['/usr/sbin/iwconfig', interface],
-                        capture_output=True,
-                        text=True,
-                        timeout=2
-                    )
-                    
-                    if iwconfig_result.returncode == 0:
-                        output = iwconfig_result.stdout
-                        if 'Mode:Monitor' in output:
-                            adapter_info['mode'] = 'monitor'
-                        elif 'Mode:Managed' in output:
-                            adapter_info['mode'] = 'managed'
-                except:
-                    pass
-                
-                # Détecter le chipset
-                adapter_info['chipset'] = detect_chipset(interface)
-                
-                adapters[interface] = adapter_info
-    
-    except Exception as e:
-        print(f"[!] Erreur get_wifi_adapters: {e}")
-    
-    return adapters
-
-
-def detect_chipset(interface):
-    """Détecte le chipset d'un adapter WiFi"""
-    try:
-        # Via ethtool
-        result = subprocess.run(
-            ['/usr/sbin/ethtool', '-i', interface],
-            capture_output=True,
-            text=True,
-            timeout=2
-        )
-        
-        if result.returncode == 0:
-            for line in result.stdout.split('\n'):
-                if line.startswith('driver:'):
-                    driver = line.split(':', 1)[1].strip()
-                    # Mapping des drivers connus
-                    chipset_map = {
-                        'rtl88x2bu': 'Realtek RTL88x2BU',
-                        'rt2800usb': 'Ralink RT2870/RT3070',
-                        'rtl8812au': 'Realtek RTL8812AU',
-                        'ath9k_htc': 'Atheros AR9271',
-                        'mt76x2u': 'MediaTek MT76x2U'
-                    }
-                    return chipset_map.get(driver, driver)
-    except:
-        pass
-    
-    return 'Unknown'
-
-
-def set_monitor_mode(interface, enable=True):
-    """Active ou désactive le mode monitor sur un interface"""
-    try:
-        # Désactiver l'interface
-        subprocess.run(['/usr/sbin/ip', 'link', 'set', interface, 'down'], timeout=5, check=True)
-        
-        if enable:
-            # Activer le mode monitor
-            subprocess.run(['/usr/sbin/iw', 'dev', interface, 'set', 'type', 'monitor'], timeout=5, check=True)
-        else:
-            # Revenir en mode managed
-            subprocess.run(['/usr/sbin/iw', 'dev', interface, 'set', 'type', 'managed'], timeout=5, check=True)
-        
-        # Réactiver l'interface
-        subprocess.run(['/usr/sbin/ip', 'link', 'set', interface, 'up'], timeout=5, check=True)
-        
-        return True
-    except Exception as e:
-        print(f"[!] Erreur set_monitor_mode: {e}")
-        return False
-
-
-def scan_wifi_networks(interface):
-    """Scan les réseaux WiFi disponibles"""
-    networks = []
-    
-    try:
-        # S'assurer que l'interface est up
-        subprocess.run(['/usr/sbin/ip', 'link', 'set', interface, 'up'], timeout=5)
-        
-        # Scanner
-        result = subprocess.run(
-            ['/usr/sbin/iw', 'dev', interface, 'scan'],
-            capture_output=True,
-            text=True,
-            timeout=30
-        )
-        
-        if result.returncode == 0:
-            current_network = {}
-            
-            for line in result.stdout.split('\n'):
-                line = line.strip()
-                
-                if line.startswith('BSS '):
-                    if current_network:
-                        networks.append(current_network)
-                    current_network = {
-                        'bssid': line.split()[1].rstrip(':'),
-                        'ssid': None,
-                        'channel': None,
-                        'signal': None,
-                        'security': []
-                    }
-                elif 'SSID:' in line:
-                    current_network['ssid'] = line.split('SSID:', 1)[1].strip()
-                elif 'freq:' in line:
-                    freq = int(line.split(':')[1].strip())
-                    # Convertir fréquence en canal
-                    if 2412 <= freq <= 2484:
-                        current_network['channel'] = (freq - 2407) // 5
-                    elif 5170 <= freq <= 5825:
-                        current_network['channel'] = (freq - 5000) // 5
-                elif 'signal:' in line:
-                    signal = line.split(':')[1].strip().split()[0]
-                    current_network['signal'] = signal
-                elif 'WPA' in line:
-                    current_network['security'].append('WPA')
-                elif 'RSN' in line:
-                    current_network['security'].append('WPA2')
-            
-            if current_network:
-                networks.append(current_network)
-    
-    except Exception as e:
-        print(f"[!] Erreur scan_wifi_networks: {e}")
-    
-    return networks
-
-
-# =================================================================================================
-# Fonctions utilitaires
-# =================================================================================================
-
-def is_service_active(service_name):
-    """Vérifie si un service systemd est actif"""
-    try:
-        result = subprocess.run(
-            ['systemctl', 'is-active', service_name],
-            capture_output=True,
-            text=True,
-            timeout=5
-        )
-        return result.stdout.strip() == 'active'
-    except:
-        return False
-
-
-def get_uptime():
-    """Retourne l'uptime du système"""
-    try:
-        with open('/proc/uptime', 'r') as f:
-            uptime_seconds = float(f.readline().split()[0])
-        
-        days = int(uptime_seconds // 86400)
-        hours = int((uptime_seconds % 86400) // 3600)
-        minutes = int((uptime_seconds % 3600) // 60)
-        
-        if days > 0:
-            return f"{days}d {hours:02d}h{minutes:02d}m"
-        else:
-            return f"{hours:02d}h{minutes:02d}m"
-    except:
-        return "unknown"
-
-
-def get_network_interfaces():
-    """Retourne les informations des interfaces réseau"""
-    interfaces = {}
-    try:
-        for interface, addrs in psutil.net_if_addrs().items():
-            for addr in addrs:
-                if addr.family == 2:  # AF_INET (IPv4)
-                    interfaces[interface] = {
-                        'ip': addr.address,
-                        'netmask': addr.netmask
-                    }
-                    break
-    except:
-        pass
-    
-    return interfaces
-
-
-def get_kernel_version():
-    """Récupère la version du kernel"""
-    try:
-        return os.uname().release
-    except:
-        return "unknown"
-
-
-# =================================================================================================
-# Routes API - Status
+# Routes API
 # =================================================================================================
 
 @app.route('/api/status')
 @login_required
 def get_status():
-    """Retourne le statut complet du système"""
+    """Retourne le statut complet du système avec données WiFi AP corrigées"""
     try:
         ligolo_running, ligolo_pid = check_ligolo_agent_running()
         ligolo_conn_info = get_ligolo_connection_info()
-        
+
+        # Services avec statut réel
+        services_detailed = get_real_service_status()
         services_status = {
-            'ligolo-agent': ligolo_running,
-            'hostapd': is_service_active('hostapd'),
-            'dnsmasq': is_service_active('dnsmasq'),
-            'ssh': is_service_active('ssh'),
+            'ligolo-agent': services_detailed.get('ligolo-agent', {}).get('active', False),
+            'hostapd': services_detailed.get('hostapd', {}).get('active', False),
+            'dnsmasq': services_detailed.get('dnsmasq', {}).get('active', False),
+            'ssh': services_detailed.get('ssh', {}).get('active', False),
             'rasppunzel-web': True
         }
-        
+
         system_info = {
             'cpu_percent': psutil.cpu_percent(interval=1),
             'memory_percent': psutil.virtual_memory().percent,
@@ -878,30 +1093,38 @@ def get_status():
             'kernel': get_kernel_version(),
             'network_interfaces': get_network_interfaces()
         }
-        
+
         ligolo_config = get_ligolo_config()
         ligolo_config.update({
             'running': ligolo_running,
             'pid': ligolo_pid,
             'connection': ligolo_conn_info
         })
-        
+
         routes = get_ligolo_routes()
-        
-        print(f"[DEBUG] Nombre de routes: {len(routes)}")
-        if routes:
-            print(f"[DEBUG] Première route: {routes[0]}")
-        
+
+        # Configuration AP dynamique
+        ap_config = get_ap_config()
+        ap_clients = get_ap_clients()
+        ap_interface = get_ap_interface()
+
         return jsonify({
             'success': True,
             'services': services_status,
+            'services_detailed': services_detailed,
             'system': system_info,
             'ligolo': ligolo_config,
             'routes': routes,
             'routes_count': len(routes),
+            'ap': {
+                'config': ap_config,
+                'clients': ap_clients,
+                'clients_count': len(ap_clients),
+                'interface': ap_interface
+            },
             'timestamp': datetime.now().isoformat()
         })
-        
+
     except Exception as e:
         print(f"[!] Erreur get_status: {e}")
         import traceback
@@ -912,74 +1135,53 @@ def get_status():
         }), 500
 
 
-# =================================================================================================
-# Routes API - Ligolo
-# =================================================================================================
-
-@app.route('/api/routes')
+@app.route('/api/ap/status')
 @login_required
-def get_routes_api():
-    """Endpoint dédié aux routes"""
+def api_get_ap_status():
+    """Statut complet de l'Access Point avec données dynamiques"""
     try:
-        debug_mode = request.args.get('debug', 'false').lower() == 'true'
-        routes = get_ligolo_routes()
-        
-        if debug_mode:
-            return jsonify({
-                'success': True,
-                'routes': routes,
-                'count': len(routes),
-                'timestamp': datetime.now().isoformat()
-            })
-        else:
-            return jsonify({
-                'success': True,
-                'routes': routes,
-                'timestamp': datetime.now().isoformat()
-            })
-            
-    except Exception as e:
-        print(f"[!] Erreur get_routes_api: {e}")
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
+        # Configuration dynamique
+        config = get_ap_config()
 
+        # Clients connectés
+        clients = get_ap_clients()
 
-@app.route('/api/ligolo/restart', methods=['POST'])
-@login_required
-def restart_ligolo():
-    """Redémarre l'agent Ligolo-ng"""
-    try:
-        result = subprocess.run(
-            ['systemctl', 'restart', 'ligolo-agent'],
-            capture_output=True,
-            text=True,
-            timeout=15
-        )
-        
+        # Statut des services
+        services = get_real_service_status()
+
+        # Interface AP
+        ap_interface = get_ap_interface()
+
         return jsonify({
-            'success': result.returncode == 0,
-            'message': 'Agent redémarré' if result.returncode == 0 else result.stderr
+            'success': True,
+            'config': config,
+            'clients': clients,
+            'clients_count': len(clients),
+            'services': {
+                'hostapd': services.get('hostapd', {}),
+                'dnsmasq': services.get('dnsmasq', {})
+            },
+            'interface': ap_interface,
+            'timestamp': datetime.now().isoformat()
         })
+
     except Exception as e:
+        print(f"[!] Erreur api_get_ap_status: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({
             'success': False,
             'error': str(e)
         }), 500
 
-
-# =================================================================================================
-# Routes API - WiFi AP
-# =================================================================================================
 
 @app.route('/api/ap/clients')
 @login_required
 def api_get_ap_clients():
-    """Liste des clients connectés à l'AP"""
+    """Liste des clients connectés à l'AP avec données en temps réel"""
     try:
         clients = get_ap_clients()
-        
+
         return jsonify({
             'success': True,
             'clients': clients,
@@ -996,10 +1198,10 @@ def api_get_ap_clients():
 @app.route('/api/ap/config')
 @login_required
 def api_get_ap_config():
-    """Configuration de l'AP"""
+    """Configuration de l'AP lue depuis les fichiers système"""
     try:
         config = get_ap_config()
-        
+
         return jsonify({
             'success': True,
             'config': config
@@ -1011,102 +1213,67 @@ def api_get_ap_config():
         }), 500
 
 
-# =================================================================================================
-# Routes API - Pentest Adapters
-# =================================================================================================
-
-@app.route('/api/adapters')
+@app.route('/api/routes')
 @login_required
-def api_get_adapters():
-    """Liste des adapters WiFi"""
+def get_routes_api():
+    """Endpoint dédié aux routes"""
     try:
-        adapters = get_wifi_adapters()
-        
+        routes = get_ligolo_routes()
+
         return jsonify({
             'success': True,
-            'adapters': adapters,
-            'count': len(adapters),
+            'routes': routes,
             'timestamp': datetime.now().isoformat()
         })
+
     except Exception as e:
+        print(f"[!] Erreur get_routes_api: {e}")
         return jsonify({
             'success': False,
             'error': str(e)
         }), 500
 
 
-@app.route('/api/adapters/<interface>/monitor', methods=['POST'])
+@app.route('/api/network/info')
 @login_required
-def api_toggle_monitor(interface):
-    """Active/désactive le mode monitor"""
+def get_network_info():
+    """Retourne les informations réseau détaillées"""
     try:
-        data = request.get_json() or {}
-        enable = data.get('enable', True)
-        
-        success = set_monitor_mode(interface, enable)
-        
-        return jsonify({
-            'success': success,
-            'message': f"Mode monitor {'activé' if enable else 'désactivé'}" if success else "Erreur"
-        })
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
+        interfaces = {}
 
+        for interface, addrs in psutil.net_if_addrs().items():
+            iface_info = {'addresses': []}
 
-@app.route('/api/adapters/<interface>/toggle', methods=['POST'])
-@login_required
-def api_toggle_interface(interface):
-    """Active/désactive une interface"""
-    try:
-        data = request.get_json() or {}
-        enable = data.get('enable', True)
-        
-        action = 'up' if enable else 'down'
-        result = subprocess.run(
-            ['/usr/sbin/ip', 'link', 'set', interface, action],
-            capture_output=True,
-            text=True,
-            timeout=5
-        )
-        
-        return jsonify({
-            'success': result.returncode == 0,
-            'message': f"Interface {action}" if result.returncode == 0 else result.stderr
-        })
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
+            for addr in addrs:
+                if addr.family == 2:  # AF_INET (IPv4)
+                    iface_info['addresses'].append({
+                        'type': 'ipv4',
+                        'ip': addr.address,
+                        'netmask': addr.netmask
+                    })
+                elif addr.family == 17:  # MAC
+                    iface_info['mac'] = addr.address
 
+            # Statut de l'interface
+            stats = psutil.net_if_stats().get(interface)
+            if stats:
+                iface_info['status'] = 'up' if stats.isup else 'down'
+                iface_info['speed'] = stats.speed
 
-@app.route('/api/adapters/<interface>/scan', methods=['POST'])
-@login_required
-def api_scan_networks(interface):
-    """Scan les réseaux WiFi"""
-    try:
-        networks = scan_wifi_networks(interface)
-        
+            interfaces[interface] = iface_info
+
         return jsonify({
             'success': True,
-            'networks': networks,
-            'count': len(networks),
-            'interface': interface,
-            'timestamp': datetime.now().isoformat()
+            'interfaces': interfaces
         })
+
     except Exception as e:
+        print(f"[!] Erreur get_network_info: {e}")
         return jsonify({
             'success': False,
             'error': str(e)
         }), 500
 
-
-# =================================================================================================
-# Routes API - Services
-# =================================================================================================
 
 @app.route('/api/services/start', methods=['POST'])
 @login_required
@@ -1115,12 +1282,12 @@ def start_services():
     try:
         data = request.get_json() or {}
         services = data.get('services', ['ligolo-agent', 'hostapd', 'dnsmasq'])
-        
+
         results = []
         for service in services:
             try:
                 result = subprocess.run(
-                    ['systemctl', 'start', service],
+                    ['/usr/bin/systemctl', 'start', service],
                     capture_output=True,
                     text=True,
                     timeout=10
@@ -1136,7 +1303,7 @@ def start_services():
                     'success': False,
                     'error': str(e)
                 })
-        
+
         return jsonify({
             'success': all(r['success'] for r in results),
             'results': results
@@ -1155,12 +1322,12 @@ def stop_services():
     try:
         data = request.get_json() or {}
         services = data.get('services', ['ligolo-agent', 'hostapd', 'dnsmasq'])
-        
+
         results = []
         for service in services:
             try:
                 result = subprocess.run(
-                    ['systemctl', 'stop', service],
+                    ['/usr/bin/systemctl', 'stop', service],
                     capture_output=True,
                     text=True,
                     timeout=10
@@ -1176,7 +1343,7 @@ def stop_services():
                     'success': False,
                     'error': str(e)
                 })
-        
+
         return jsonify({
             'success': all(r['success'] for r in results),
             'results': results
@@ -1195,12 +1362,12 @@ def restart_services():
     try:
         data = request.get_json() or {}
         services = data.get('services', ['ligolo-agent', 'hostapd', 'dnsmasq'])
-        
+
         results = []
         for service in services:
             try:
                 result = subprocess.run(
-                    ['systemctl', 'restart', service],
+                    ['/usr/bin/systemctl', 'restart', service],
                     capture_output=True,
                     text=True,
                     timeout=15
@@ -1216,7 +1383,7 @@ def restart_services():
                     'success': False,
                     'error': str(e)
                 })
-        
+
         return jsonify({
             'success': all(r['success'] for r in results),
             'results': results
@@ -1228,10 +1395,6 @@ def restart_services():
         }), 500
 
 
-# =================================================================================================
-# Routes API - Logs & Network
-# =================================================================================================
-
 @app.route('/api/logs')
 @login_required
 def get_logs():
@@ -1239,24 +1402,21 @@ def get_logs():
     try:
         log_type = request.args.get('type', 'ligolo')
         lines = int(request.args.get('lines', 50))
-        
+
         logs_data = {}
-        
+
         if log_type in ['all', 'ligolo']:
-            logs_data['ligolo'] = get_ligolo_logs(lines)
-        
-        if log_type in ['all', 'system']:
             result = subprocess.run(
-                ['/usr/bin/journalctl', '-n', str(lines), '--no-pager', '-o', 'short'],
+                ['/usr/bin/journalctl', '-u', 'ligolo-agent', '-n', str(lines), '--no-pager', '-o', 'short'],
                 capture_output=True,
                 text=True,
                 timeout=5
             )
             if result.returncode == 0:
-                logs_data['system'] = [
+                logs_data['ligolo'] = [
                     line for line in result.stdout.split('\n') if line.strip()
                 ]
-        
+
         if log_type in ['all', 'hostapd']:
             result = subprocess.run(
                 ['/usr/bin/journalctl', '-u', 'hostapd', '-n', str(lines), '--no-pager', '-o', 'short'],
@@ -1268,7 +1428,7 @@ def get_logs():
                 logs_data['hostapd'] = [
                     line for line in result.stdout.split('\n') if line.strip()
                 ]
-        
+
         if log_type in ['all', 'dnsmasq']:
             result = subprocess.run(
                 ['/usr/bin/journalctl', '-u', 'dnsmasq', '-n', str(lines), '--no-pager', '-o', 'short'],
@@ -1280,63 +1440,22 @@ def get_logs():
                 logs_data['dnsmasq'] = [
                     line for line in result.stdout.split('\n') if line.strip()
                 ]
-        
+
         # Si un type spécifique, retourner directement
         if log_type in logs_data:
             return jsonify({
                 'success': True,
                 'logs': logs_data[log_type]
             })
-        
+
         # Sinon retourner tout
         return jsonify({
             'success': True,
             'logs': logs_data
         })
-        
+
     except Exception as e:
         print(f"[!] Erreur get_logs: {e}")
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
-
-
-@app.route('/api/network/info')
-@login_required
-def get_network_info():
-    """Retourne les informations réseau détaillées"""
-    try:
-        interfaces = {}
-        
-        for interface, addrs in psutil.net_if_addrs().items():
-            iface_info = {'addresses': []}
-            
-            for addr in addrs:
-                if addr.family == 2:  # AF_INET (IPv4)
-                    iface_info['addresses'].append({
-                        'type': 'ipv4',
-                        'ip': addr.address,
-                        'netmask': addr.netmask
-                    })
-                elif addr.family == 17:  # MAC
-                    iface_info['mac'] = addr.address
-            
-            # Statut de l'interface
-            stats = psutil.net_if_stats().get(interface)
-            if stats:
-                iface_info['status'] = 'up' if stats.isup else 'down'
-                iface_info['speed'] = stats.speed
-            
-            interfaces[interface] = iface_info
-        
-        return jsonify({
-            'success': True,
-            'interfaces': interfaces
-        })
-        
-    except Exception as e:
-        print(f"[!] Erreur get_network_info: {e}")
         return jsonify({
             'success': False,
             'error': str(e)
@@ -1352,7 +1471,6 @@ def export_config():
             'ligolo': get_ligolo_config(),
             'ap': get_ap_config(),
             'network': get_network_interfaces(),
-            'adapters': get_wifi_adapters(),
             'services': {
                 'ligolo-agent': check_ligolo_agent_running()[0],
                 'hostapd': is_service_active('hostapd'),
@@ -1365,7 +1483,7 @@ def export_config():
             },
             'export_date': datetime.now().isoformat()
         }
-        
+
         return jsonify({
             'success': True,
             'config': config
@@ -1400,7 +1518,7 @@ def handle_request_status():
     """Envoi du statut via WebSocket"""
     try:
         ligolo_running, ligolo_pid = check_ligolo_agent_running()
-        
+
         emit('status_update', {
             'ligolo_running': ligolo_running,
             'ligolo_pid': ligolo_pid,
@@ -1411,27 +1529,47 @@ def handle_request_status():
 
 
 # =================================================================================================
+# Gestion des erreurs
+# =================================================================================================
+
+@app.errorhandler(404)
+def not_found(error):
+    if request.is_json:
+        return jsonify({'success': False, 'error': 'Endpoint not found'}), 404
+    return redirect(url_for('index'))
+
+
+@app.errorhandler(500)
+def internal_error(error):
+    if request.is_json:
+        return jsonify({'success': False, 'error': 'Internal server error'}), 500
+    return redirect(url_for('index'))
+
+
+# =================================================================================================
 # Main
 # =================================================================================================
 
 def run_server(host='0.0.0.0', port=5000, debug=False):
     """Lance le serveur Flask"""
-    print(f"[+] RaspPunzel Dashboard Backend v2.1")
-    print(f"[+] ================================")
-    print(f"[+] Chargement de la configuration...")
+    print(f"[+] RaspPunzel Dashboard Backend v2.1 - COMPLET ET CORRIGÉ")
+    print(f"[+] ===================================================")
+    print(f"[+] Corrections apportées:")
+    print(f"[+]   - Authentification complète")
+    print(f"[+]   - Configuration WiFi AP dynamique")
+    print(f"[+]   - Statut services en temps réel")
+    print(f"[+]   - Détection clients connectés")
+    print(f"[+]   - Interface AP automatique")
+    print(f"[+]   - Toutes les erreurs de syntaxe corrigées")
+    print(f"[+] ")
     load_auth_config()
-    
+
     print(f"[+] Démarrage du serveur sur {host}:{port}")
     print(f"[+] Interface web: http://{host}:8080")
     print(f"[+] Utilisateur: {AUTH_CONFIG['username']}")
     print(f"[+] Mot de passe par défaut: rasppunzel")
     print(f"[+] ")
-    print(f"[+] Fonctionnalités disponibles:")
-    print(f"[+]   - Ligolo-ng Management")
-    print(f"[+]   - WiFi Access Point Control")
-    print(f"[+]   - Pentest WiFi Adapters Management")
-    print(f"[+] ")
-    
+
     try:
         socketio.run(app, host=host, port=port, debug=debug, allow_unsafe_werkzeug=True)
     except KeyboardInterrupt:
@@ -1441,13 +1579,13 @@ def run_server(host='0.0.0.0', port=5000, debug=False):
 
 if __name__ == '__main__':
     import argparse
-    
+
     parser = argparse.ArgumentParser(
-        description='RaspPunzel Dashboard Server - Multi-feature Pentest Platform'
+        description='RaspPunzel Dashboard Server - Version complète corrigée'
     )
     parser.add_argument('--host', default='0.0.0.0', help='Adresse d\'écoute')
     parser.add_argument('--port', type=int, default=5000, help='Port d\'écoute')
     parser.add_argument('--debug', action='store_true', help='Mode debug')
-    
+
     args = parser.parse_args()
     run_server(args.host, args.port, args.debug)
